@@ -12,7 +12,7 @@ purpose.
 """
 
 # the different colors
-styles = [
+colorCodes = [
     (255,0,0),
     (0,255,0),
     (0,0,255),
@@ -52,8 +52,8 @@ def plotChromatogram(filename, chromatogram, keys=["A","C","T","G"]):
     # plot legend
     for i, key in enumerate(keys):
         # add the box
-        style = "fill:rgba(%s,%s,%s,0.3);" % styles[i % len(styles)]
-        style += "stroke:rgb(%s,%s,%s)" % styles[i % len(styles)]
+        style = "fill:rgba(%s,%s,%s,0.3);" % colorCodes[i % len(colorCodes)]
+        style += "stroke:rgb(%s,%s,%s)" % colorCodes[i % len(colorCodes)]
         box = svg.rect(insert=(offsetX + 15, offsetY + 15 + i * 24), size=(24, 12), style=style)
         svg.add(box)
         # add the text
@@ -82,8 +82,8 @@ def plotChromatogram(filename, chromatogram, keys=["A","C","T","G"]):
             points.append((lastPoint, offsetY + maxChromVal - value))
         points.append((lastPoint, offsetY + maxChromVal)) # ending point is always "end", "0"
         # create the polygon
-        style = "fill:rgba(%s,%s,%s,0.3);" % styles[i % len(styles)]
-        style += "stroke:rgb(%s,%s,%s)" % styles[i % len(styles)]
+        style = "fill:rgba(%s,%s,%s,0.3);" % colorCodes[i % len(colorCodes)]
+        style += "stroke:rgb(%s,%s,%s)" % colorCodes[i % len(colorCodes)]
         poly = svg.polygon(points, style=style)
         # add the polygon to the figure
         svg.add(poly)
