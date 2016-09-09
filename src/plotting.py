@@ -34,7 +34,7 @@ def plotChromatogram(filename, chromatogram, keys=["A","C","T","G"]):
     """
     # settings - maybe need to adjust these values later ...
     offsetX, offsetY = 50, 50
-    # get the maximal value of the chromatogram
+    # get the minimal value of the chromatogram
     maxChromVal = float("-inf")
     for key in keys:
         maxChromVal = max(maxChromVal, max(chromatogram[key]))
