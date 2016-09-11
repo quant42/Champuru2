@@ -23,6 +23,13 @@ colorCodes = [
     (200,200,200)
 ]
 
+def _unicode(obj):
+    """
+        Needed so that code works with both python2 and pyhton3.
+    """
+    try: return unicode(obj)
+    except: return str(obj)
+
 def plotChromatogram(filename, chromatogram, keys=["A","C","T","G"]):
     """
         Plot chromatogram data to a file.
@@ -58,7 +65,7 @@ def plotChromatogram(filename, chromatogram, keys=["A","C","T","G"]):
         svg.add(box)
         # add the text
         style = "font-size:20px"
-        text = svg.text(unicode(key), insert=(offsetX + 52, offsetY + 27 + i * 24), style=style)
+        text = svg.text(_unicode(key), insert=(offsetX + 52, offsetY + 27 + i * 24), style=style)
         svg.add(text)
     # plot bottom scale/ruler
     for i in range(0, chromLength, 100):
@@ -123,7 +130,7 @@ def plotCwt(filename, cwt, keys=["A","C","T","G"]):
         svg.add(box)
         # add the text
         style = "font-size:20px"
-        text = svg.text(unicode(key), insert=(offsetX + 52, offsetY + 27 + i * 24), style=style)
+        text = svg.text(_unicode(key), insert=(offsetX + 52, offsetY + 27 + i * 24), style=style)
         svg.add(text)
     # plot bottom scale/ruler
     for i in range(0, cwtLength, 100):
