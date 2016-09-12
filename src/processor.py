@@ -9,32 +9,38 @@ __doc__ = """
 Library to convert the chromatogram into a probabilty matrix.
 """
 
-def annotateMaxima(trace, traceCwt, pos):
-    """
-        Annotate a maxima.
-
-        @param trace    The trace the maxima is in.
-        @param traceCwt The continuous wavelet
-        transformation of the trace.
-        @param pos      The position of the maxima.
-    """
-    # get the value of the maximum
-    maxVal = traceCwt[pos]
-    # get the values of the nearest minimas
-    lMinVal, lMinPos = maxVal, pos
-    while lMinPos - 1 >= 0 and \
-        lMinVal >= traceCwt[lMinPos - 1]:
-        lMinPos -= 1
-        lMinVal = traceCwt[lMinPos]
-    rMinVal, rMinPos = maxVal, pos
-    while rMinPos + 1 < len(traceCwt) and \
-        rMinVal >= traceCwt[rMinPos + 1]:
-        rMinPos += 1
-        rMinVal = traceCwt[rMinPos]
-    # calculate the quality of the maxima
-    qual = 0 #TODO
-    # return
-    return (qual, pos)
+#def annotateMaxima(trace, traceCwt, pos):
+#    """
+#        Annotate a maxima.
+#
+#        @param trace    The trace the maxima is in.
+#        @param traceCwt The continuous wavelet
+#        transformation of the trace.
+#        @param pos      The position of the maxima.
+#        @return A triple (a, b, c), where a represents the
+#        hight of the peak, b the quality of the peak and
+#        c the peak position.
+#    """
+#    # get the value of the maximum
+#    maxVal = traceCwt[pos]
+#    # get the values of the nearest minimas
+#    lMinVal, lMinPos = maxVal, pos
+#    while lMinPos - 1 >= 0 and \
+#        lMinVal >= traceCwt[lMinPos - 1]:
+#        lMinPos -= 1
+#        lMinVal = traceCwt[lMinPos]
+#    rMinVal, rMinPos = maxVal, pos
+#    while rMinPos + 1 < len(traceCwt) and \
+#        rMinVal >= traceCwt[rMinPos + 1]:
+#        rMinPos += 1
+#        rMinVal = traceCwt[rMinPos]
+#    # get the peak hight in the cwt transformation
+#    cwtPeakHeight = maxVal - min(max(lMinVal, rMinVal), 0)
+#    # calculate the quality of the maxima
+#    # TODO better fit the parameter values of this model
+#    qual = 1 / (1 + np.e ** (-0.25 * (cwtPeakHeight - 20)))
+#    # return
+#    return (cwtPeakHeight, qual, pos)
 
 def chromToMatrix(chrom):
     """
@@ -43,26 +49,31 @@ def chromToMatrix(chrom):
 
         @param chrom The chromatogram to process.
         @return A probability matrix that represents
-        the amino acid probability for the different
+        the nucleotid probability for the different
         positions in the chromatogram.
     """
-    # continuous wavelet transformation of chrom data
-    cwt = {
-        key : signal.cwt(chrom[key], signal.ricker, [4])[0]
-        for key in "ACTG"
-    }
-    # Search for local maximums in the transformation
-    maximas = {
-        key : signal.argrelextrema(cwt[key], np.greater)[0]
-        for key in "ACTG"
-    }
-    # annotate the maximas
-    maximas = {
-        key : [
-            annotateMaxima(chrom[key], cwt[key], maxima)
-            for maxima in maximas[key]
-        ]
-        for key in "ACTG"
-    }
-    # combine maximas
-    
+    # get the "maximal" trace
+    maxTrace = []
+    for i in range(len(chrom["A"])):
+        maxVal = 0
+        for key in "ACTG":
+            maxVal = max(maxVal, chrom[key][i])
+        maxTrace.append(maxVal)
+    chrom['M'] = maxTrace
+    # ok, in the maximal trace, search for local minimas
+    # this allows us to reduce the problem, since between
+    # each consicutive two local minima there's a local maxima
+    # continuous wavelet transformation of this curve
+    mCwt = signal.cwt(chrom['M'], signal.ricker, [4])[0]
+    # Search for local minimas in the transformation
+    minimas = signal.argrelextrema(mCwt, np.less)[0]
+    # ok - now window between two consicutive minimas
+    # this will explicitly not handle the case between
+    # the last minima and the trace end
+    startMin, lst = 0, []
+    for minima in minimas:
+        peak = getPeakBetweenMinimas(startMin, minima)
+        lst.append(peak)
+        startMin = minima
+    # return the matrix
+    return lst
