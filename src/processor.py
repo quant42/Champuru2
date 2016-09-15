@@ -3,7 +3,7 @@
 
 from __future__ import division, print_function
 import numpy as np
-from scipy import signal
+from scipy import signal, stats
 
 __doc__ = """
 Library to convert the chromatogram into a probabilty matrix.
@@ -42,6 +42,43 @@ Library to convert the chromatogram into a probabilty matrix.
 #    # return
 #    return (cwtPeakHeight, qual, pos)
 
+def annotate(traceP, cwtP):
+    """
+        Annotate a part of a chromatogram part.
+
+        @param traceP The part of the trace to
+        annotate.
+        @param cwtP   The part of the trace
+        transformation to annotate.
+        @return The annotation.
+    """
+    # probab for peak
+    x = max(traceP) - min(traceP)
+    return 1 / (1 + np.e ** (-20*(x-10)))
+
+def getPeakBetweenMinimas(chrom, start, stop):
+    """
+        Try to analyse/annotate a peak position.
+
+        @param chrom The chromatogram the peak is in.
+        @param start The start position in the
+        chromatogram to search the peak in.
+        @param stop  The stop position in the
+        chromatogram to search the peak in.
+        @return (start, stop, pA, pC, pT, pG) or
+        None if between start and stop there's probably
+        no peak!
+    """
+    # not enough data
+    if stop - start <= 5:
+        return None
+    # ok, ok, analyse the data
+    # Kolmovorov-Smirnov-Test/Shapiro–Wilk
+    data = []
+    for key in "ACTG":
+        data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1]))
+    return (start, stop, data[0], data[1], data[2], data[3])
+
 def chromToMatrix(chrom):
     """
         Transfer the chromatogram into a probability
@@ -65,15 +102,20 @@ def chromToMatrix(chrom):
     # each consicutive two local minima there's a local maxima
     # continuous wavelet transformation of this curve
     mCwt = signal.cwt(chrom['M'], signal.ricker, [4])[0]
+    # calculate the continuous wavelet transformation
+    # for each trace (for later)
+    for key in "ACTG":
+        chrom['CWT_' + key] = signal.cwt(chrom[key], signal.ricker, [4])[0]
     # Search for local minimas in the transformation
     minimas = signal.argrelextrema(mCwt, np.less)[0]
-    # ok - now window between two consicutive minimas
+    # Now window between two consicutive minimas
     # this will explicitly not handle the case between
     # the last minima and the trace end
     startMin, lst = 0, []
     for minima in minimas:
-        peak = getPeakBetweenMinimas(startMin, minima)
-        lst.append(peak)
+        peak = getPeakBetweenMinimas(chrom, startMin, minima)
+        if peak != None: # data got accepted
+            lst.append(peak)
         startMin = minima
     # return the matrix
     return lst
