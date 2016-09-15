@@ -52,9 +52,8 @@ def annotate(traceP, cwtP):
         transformation to annotate.
         @return The annotation.
     """
-    # probab for peak
-    x = max(traceP) - min(traceP)
-    return 1 / (1 + np.e ** (-20*(x-10)))
+    x = abs(max(0, max(cwtP)) - max(cwtP[0], cwtP[-1]))
+    return 1 / (1 + np.e ** (-0.25*(x-20)))
 
 def getPeakBetweenMinimas(chrom, start, stop):
     """
