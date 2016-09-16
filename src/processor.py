@@ -72,10 +72,13 @@ def getPeakBetweenMinimas(chrom, start, stop):
     if stop - start <= 5:
         return None
     # ok, ok, analyse the data
-    # Kolmovorov-Smirnov-Test/Shapiro–Wilk
+    # TODO: check if tests like Kolmovorov-Smirnov-Test
+    # Shapiro–Wilk work better
     data = []
     for key in "ACTG":
         data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1]))
+    add = 1 - max(data)
+    data = [data[i] + add for i in range(len(data))]
     return (start, stop, data[0], data[1], data[2], data[3])
 
 def chromToMatrix(chrom):
