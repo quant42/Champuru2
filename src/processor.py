@@ -42,6 +42,124 @@ Library to convert the chromatogram into a probabilty matrix.
 #    # return
 #    return (cwtPeakHeight, qual, pos)
 
+def matrixToSeq(m):
+    """
+        Transfer a matrix into a sequence.
+    """
+    result = []
+    for data in m:
+        add = 1 - max(data)
+        A = data[0] + add > 0.5
+        C = data[1] + add > 0.5
+        T = data[2] + add > 0.5
+        G = data[3] + add > 0.5
+        val = (1 if A else 0) + \
+            (2 if C else 0) + \
+            (4 if T else 0) + \
+            (8 if G else 0)
+        result.append([
+            'Z', 'A', 'C', 'M', 'T', 'W', 'Y', 'H', 'G',
+            'R', 'S', 'V', 'K', 'D', 'B', 'N'
+        ][val])
+    return "".join(result)
+
+def combine(c1, c2, p1, p2):
+    """
+        Combine two positions in the matrix.
+
+        @param c1 The first matrix.
+        @param c2 The second matrix.
+        @param p1 The position in the first matrix.
+        @param p2 The position in the second matrix.
+        @result A combined probability vector.
+    """
+    try:
+        return ( # XYACTG
+            c1[p1][2] * c2[p2][4],
+            c1[p1][3] * c2[p2][5],
+            c1[p1][4] * c2[p2][2],
+            c1[p1][5] * c2[p2][3]
+        )
+    except:
+        if 0 <= p1 < len(c1):
+            return tuple(c1[p1][2:])
+        if 0 <= p2 < len(c2):
+            return tuple(c2[p2][2:])
+        return (0,0,0,0)
+
+def combineMatrix(c1, c2, offset):
+    """
+        Combine two matrices.
+
+        @param c1 The first matrix.
+        @param c2 The second matrix.
+        @param offset The offset for combination.
+        @return The combined matrix.
+    """
+    return [
+        combine(c1, c2, i - offset, i)
+        for i in range(min(offset, 0), max(len(c1), len(c2)) + max(offset, 0))
+    ]
+
+def evaluatePairing(c1, c2):
+    """
+        Evaluate a pairing.
+
+        @param c1 The first of the pairings.
+        @param c2 The second of the pairings.
+        @result A pairing score between 0 (poor pairing)
+        and 1 (very good pairing).
+    """
+    val = max(
+        c1[2] * c2[4],
+        c1[3] * c2[5],
+        c1[4] * c2[2],
+        c1[5] * c2[3]
+    )
+    assert 0 <= val <= 1, "Internal Error; 0 <= %s <= 1?" % val
+    return val
+
+def scoreOverlap(c1, c2):
+    """
+        Score an overlap.
+
+        @param c1 The overlap of the first chromatogram.
+        @param c2 The overlap of the second chromatogram.
+        @return The score of the overlaps.
+    """
+    score = 0
+    for i, cS1 in enumerate(c1):
+        score += evaluatePairing(cS1, c2[i])
+    return score
+
+def getRandScore(c1, c2):
+    """
+        Get the score, that a random overlap, with the base
+        distribution of c1 and c2 would probably archive.
+
+        @param c1 The overlap of the first chromatogram.
+        @param c2 The overlap of the second chromatogram.
+        @return The score that a random overlap would archive.
+    """
+    summe = 0
+    for ch1 in c1:
+        for ch2 in c2:
+            summe += evaluatePairing(ch1, ch2)
+    return summe / len(c1)
+
+def reverse(matrix):
+    """
+        Reverse a matrix.
+
+        @param matrix The matrix to return.
+        @return The reversed matrix.
+    """
+    mRet = [ # XYACTG
+        (val[0], val[1], val[4], val[5], val[2], val[3])
+        for val in reversed(matrix)
+    ]
+    return mRet
+
 def annotate(traceP, cwtP):
     """
         Annotate a part of a chromatogram part.
@@ -69,7 +187,7 @@ def getPeakBetweenMinimas(chrom, start, stop):
         no peak!
     """
     # not enough data
-    if stop - start <= 5:
+    if stop - start <= 3:
         return None
     # ok, ok, analyse the data
     # TODO: check if tests like Kolmovorov-Smirnov-Test
@@ -77,8 +195,8 @@ def getPeakBetweenMinimas(chrom, start, stop):
     data = []
     for key in "ACTG":
         data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1]))
-    add = 1 - max(data)
-    data = [data[i] + add for i in range(len(data))]
+#    add = 1 - max(data)
+#    data = [data[i] + add for i in range(len(data))]
     return (start, stop, data[0], data[1], data[2], data[3])
 
 def chromToMatrix(chrom):
@@ -103,11 +221,11 @@ def chromToMatrix(chrom):
     # this allows us to reduce the problem, since between
     # each consicutive two local minima there's a local maxima
     # continuous wavelet transformation of this curve
-    mCwt = signal.cwt(chrom['M'], signal.ricker, [4])[0]
+    mCwt = signal.cwt(chrom['M'], signal.ricker, [2])[0]
     # calculate the continuous wavelet transformation
     # for each trace (for later)
     for key in "ACTG":
-        chrom['CWT_' + key] = signal.cwt(chrom[key], signal.ricker, [4])[0]
+        chrom['CWT_' + key] = signal.cwt(chrom[key], signal.ricker, [2])[0]
     # Search for local minimas in the transformation
     minimas = signal.argrelextrema(mCwt, np.less)[0]
     # Now window between two consicutive minimas
