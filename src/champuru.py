@@ -36,12 +36,12 @@ if __name__ == "__main__":
     m2 = processor.chromToMatrix(i2)
     print("Got sequences:")
     # TODO: represent matrices as seq.logo
-    print(processor.matrixToSeq([m[2:] for m in m1]))
-    print(processor.matrixToSeq([m[2:] for m in m2]))
+    print(processor.matrixToSeq(m1))
+    print(processor.matrixToSeq(m2))
     # reverse m2
     m2 = processor.reverse(m2)
     print("s2 reversed:")
-    print(processor.matrixToSeq([m[2:] for m in m2]))
+    print(processor.matrixToSeq(m2))
     # combine matrix data
     offs, l1, l2 = [], len(m1), len(m2)
     minL = min(l1, l2)

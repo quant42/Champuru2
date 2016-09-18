@@ -48,7 +48,7 @@ def matrixToSeq(m):
     """
     result = []
     for data in m:
-        add = 1 - max(data)
+        add = 1 - max(data[:4])
         A = data[0] + add > 0.5
         C = data[1] + add > 0.5
         T = data[2] + add > 0.5
