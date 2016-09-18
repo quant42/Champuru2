@@ -74,17 +74,17 @@ def combine(c1, c2, p1, p2):
         @result A combined probability vector.
     """
     try:
-        return ( # XYACTG
-            c1[p1][2] * c2[p2][4],
-            c1[p1][3] * c2[p2][5],
-            c1[p1][4] * c2[p2][2],
-            c1[p1][5] * c2[p2][3]
+        return ( # ACTGXY
+            c1[p1][0] * c2[p2][2],
+            c1[p1][1] * c2[p2][3],
+            c1[p1][2] * c2[p2][0],
+            c1[p1][3] * c2[p2][1]
         )
     except:
         if 0 <= p1 < len(c1):
-            return tuple(c1[p1][2:])
+            return c1[p1]
         if 0 <= p2 < len(c2):
-            return tuple(c2[p2][2:])
+            return c2[p2]
         return (0,0,0,0)
 
 def combineMatrix(c1, c2, offset):
@@ -111,10 +111,10 @@ def evaluatePairing(c1, c2):
         and 1 (very good pairing).
     """
     val = max(
-        c1[2] * c2[4],
-        c1[3] * c2[5],
-        c1[4] * c2[2],
-        c1[5] * c2[3]
+        c1[0] * c2[2],
+        c1[1] * c2[3],
+        c1[2] * c2[0],
+        c1[3] * c2[1]
     )
     assert 0 <= val <= 1, "Internal Error; 0 <= %s <= 1?" % val
     return val
@@ -154,8 +154,8 @@ def reverse(matrix):
         @param matrix The matrix to return.
         @return The reversed matrix.
     """
-    mRet = [ # XYACTG
-        (val[0], val[1], val[4], val[5], val[2], val[3])
+    mRet = [ # ACTG
+        (val[2], val[3], val[0], val[1])
         for val in reversed(matrix)
     ]
     return mRet
@@ -182,7 +182,7 @@ def getPeakBetweenMinimas(chrom, start, stop):
         chromatogram to search the peak in.
         @param stop  The stop position in the
         chromatogram to search the peak in.
-        @return (start, stop, pA, pC, pT, pG) or
+        @return (pA, pC, pT, pG, start, stop) or
         None if between start and stop there's probably
         no peak!
     """
@@ -197,7 +197,7 @@ def getPeakBetweenMinimas(chrom, start, stop):
         data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1]))
 #    add = 1 - max(data)
 #    data = [data[i] + add for i in range(len(data))]
-    return (start, stop, data[0], data[1], data[2], data[3])
+    return (data[0], data[1], data[2], data[3], start, stop)
 
 def chromToMatrix(chrom):
     """
