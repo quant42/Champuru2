@@ -75,10 +75,10 @@ def combine(c1, c2, p1, p2):
     """
     try:
         return ( # ACTGXY
-            c1[p1][0] * c2[p2][2],
-            c1[p1][1] * c2[p2][3],
-            c1[p1][2] * c2[p2][0],
-            c1[p1][3] * c2[p2][1]
+            (c1[p1][0] * c2[p2][2]) ** 0.5,
+            (c1[p1][1] * c2[p2][3]) ** 0.5,
+            (c1[p1][2] * c2[p2][0]) ** 0.5,
+            (c1[p1][3] * c2[p2][1]) ** 0.5
         )
     except:
         if 0 <= p1 < len(c1):
@@ -111,10 +111,10 @@ def evaluatePairing(c1, c2):
         and 1 (very good pairing).
     """
     val = max(
-        c1[0] * c2[2],
-        c1[1] * c2[3],
-        c1[2] * c2[0],
-        c1[3] * c2[1]
+        (c1[0] * c2[2]) ** 0.5,
+        (c1[1] * c2[3]) ** 0.5,
+        (c1[2] * c2[0]) ** 0.5,
+        (c1[3] * c2[1]) ** 0.5
     )
     assert 0 <= val <= 1, "Internal Error; 0 <= %s <= 1?" % val
     return val
@@ -160,7 +160,7 @@ def reverse(matrix):
     ]
     return mRet
 
-def annotate(traceP, cwtP):
+def annotate(traceP, cwtP, params):
     """
         Annotate a part of a chromatogram part.
 
@@ -168,12 +168,17 @@ def annotate(traceP, cwtP):
         annotate.
         @param cwtP   The part of the trace
         transformation to annotate.
+        @param params Annotation parameters.
         @return The annotation.
     """
     x = abs(max(0, max(cwtP)) - max(cwtP[0], cwtP[-1]))
-    return 1 / (1 + np.e ** (-0.25*(x-20)))
+    # prevent overflow
+    if (-params[3]*(x-params[4])) < -100: return 1.0
+    if (-params[3]*(x-params[4])) > 100: return 0
+    # calculate precisely
+    return 1 / (1 + np.e ** (-params[3]*(x-params[4])))
 
-def getPeakBetweenMinimas(chrom, start, stop):
+def getPeakBetweenMinimas(chrom, start, stop, params):
     """
         Try to analyse/annotate a peak position.
 
@@ -182,29 +187,31 @@ def getPeakBetweenMinimas(chrom, start, stop):
         chromatogram to search the peak in.
         @param stop  The stop position in the
         chromatogram to search the peak in.
+        @param params Prediciton parameters.
         @return (pA, pC, pT, pG, start, stop) or
         None if between start and stop there's probably
         no peak!
     """
     # not enough data
-    if stop - start <= 3:
+    if stop - start <= params[2]:
         return None
     # ok, ok, analyse the data
     # TODO: check if tests like Kolmovorov-Smirnov-Test
     # Shapiro–Wilk work better
     data = []
     for key in "ACTG":
-        data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1]))
+        data.append(annotate(chrom[key][start:stop+1], chrom['CWT_' + key][start:stop+1], params))
 #    add = 1 - max(data)
 #    data = [data[i] + add for i in range(len(data))]
     return (data[0], data[1], data[2], data[3], start, stop)
 
-def chromToMatrix(chrom):
+def chromToMatrix(chrom, params=(1.61, 0.1, 6, 1.38, 12)):
     """
         Transfer the chromatogram into a probability
         matrix.
 
         @param chrom The chromatogram to process.
+        @param params Possible prediction parameters.
         @return A probability matrix that represents
         the nucleotid probability for the different
         positions in the chromatogram.
@@ -221,11 +228,11 @@ def chromToMatrix(chrom):
     # this allows us to reduce the problem, since between
     # each consicutive two local minima there's a local maxima
     # continuous wavelet transformation of this curve
-    mCwt = signal.cwt(chrom['M'], signal.ricker, [2])[0]
+    mCwt = signal.cwt(chrom['M'], signal.ricker, [params[0]])[0]
     # calculate the continuous wavelet transformation
     # for each trace (for later)
     for key in "ACTG":
-        chrom['CWT_' + key] = signal.cwt(chrom[key], signal.ricker, [2])[0]
+        chrom['CWT_' + key] = signal.cwt(chrom[key], signal.ricker, [params[1]])[0]
     # Search for local minimas in the transformation
     minimas = signal.argrelextrema(mCwt, np.less)[0]
     # Now window between two consicutive minimas
@@ -233,7 +240,7 @@ def chromToMatrix(chrom):
     # the last minima and the trace end
     startMin, lst = 0, []
     for minima in minimas:
-        peak = getPeakBetweenMinimas(chrom, startMin, minima)
+        peak = getPeakBetweenMinimas(chrom, startMin, minima, params)
         if peak != None: # data got accepted
             lst.append(peak)
         startMin = minima
