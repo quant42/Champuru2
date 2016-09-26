@@ -4,6 +4,9 @@
 from __future__ import division, print_function
 import plotting, filter, cutter, processor, argparse
 from champuruIO import dnaChromatogramFileReader as reader
+import matplotlib.pyplot as plt
+from scipy import signal
+import numpy as np
 
 __doc__ = """
 This file has no other purpose than to serve as main entry - in case you want to call
@@ -14,18 +17,26 @@ if __name__ == "__main__":
     # argument parsing
     parser = argparse.ArgumentParser(description = "")
     parser.add_argument("-i", "--forward", dest="in1", type=str, required=True, help="The chromatogram of the ''forward'' strand.")
-    parser.add_argument("-j", "--reversed", dest="in2", type=str, required=True, help="The chromatogram of the ''reversed'' strand.")
+#    parser.add_argument("-j", "--reversed", dest="in2", type=str, required=True, help="The chromatogram of the ''reversed'' strand.")
     args = parser.parse_args()
     # read in the chromatogram files
+    print("Readin ...")
     i1 = reader.readFile(args.in1)
-    i2 = reader.readFile(args.in2)
-    plotting.plotChromatogram("i1.svg", i1)
-    plotting.plotChromatogram("i2.svg", i2)
+#    i2 = reader.readFile(args.in2)
+#    plotting.plotChromatogram("i1.svg", i1)
+#    plotting.plotChromatogram("i2.svg", i2)
     # filter
-    i1 = filter.applyGaussianFilter(i1)
-    i2 = filter.applyGaussianFilter(i2)
-    plotting.plotChromatogram("i1f.svg", i1)
-    plotting.plotChromatogram("i2f.svg", i2)
+#    print("Filtering ...")
+#    i1 = filter.applyGaussianFilter(i1)
+#    i2 = filter.applyGaussianFilter(i2)
+#    plotting.plotChromatogram("i1f.svg", i1)
+#    plotting.plotChromatogram("i2f.svg", i2)
+    print("Plotting ...")
+    sign = signal.cwt(i1['A'], signal.ricker, [1, 50, 100, 500, 1000, 5000])
+    for cwt in sign:
+        plt.plot(cwt)
+    plt.show()
+    import sys; sys.exit(0)
     # cut out the reliable region out of the chromatogram
     i1, p11, p12 = cutter.cutoutReliableRegion(i1)
     i2, p21, p22 = cutter.cutoutReliableRegion(i2)
