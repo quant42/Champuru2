@@ -6,6 +6,7 @@ from champuruIO import dnaChromatogramFileReader as reader
 from champuruIO import dnaChromatogramFileWriter as writer
 from scipy import signal
 import numpy as np
+import svgwrite
 
 __doc__ = """
 This file basically consists out of the DNAChromatogram class
@@ -119,6 +120,7 @@ class DNAChromatogram:
             return zip( # but programmed with numpy
                 self.aTrace, self.cTrace, self.tTrace, self.gTrace
             ).T
+        raise KeyError("Key: %s not defined for chromatogram object" % key)
     
     def __copy__(self):
         """
@@ -131,28 +133,6 @@ class DNAChromatogram:
             self.gTrace.__copy__()
         )
     
-    def plot(self, filename):
-        """
-            Get a graphical representation of this chromatogram.
-
-            @param filename The filename to save the plot to.
-        """
-        pass # TODO
-    
-    def doBaseCalling(self):
-        """
-            Perform the base calling.
-
-            @return 
-        """
-        # have we already done the base calling once?
-        # if yes, just return the results
-        try: return self.bases
-        except: pass
-        # nope, we haven't done the base calling till now
-        # -> do it
-        pass # TODO
-    
     def getNucs(self):
         """
             Return the one letter code of the nucleotids that
@@ -162,9 +142,70 @@ class DNAChromatogram:
         """
         return ['A', 'C', 'T' , 'G']
     
-    def filter(self):
+    def plot(self, filename, indents=0, colorCodes=[(255,0,0),(0,255,0),(0,0,255),(0,0,0)]):
         """
-            Filter the chromatogram.
+            Plot the chromatogram to a given file.
+
+            @param filename The filename of the file to plot the
+            chromatogram to.
+            @param indents Number of indents values to plot at the beginning of the trace.
+            @param colorCodes Color codes to use for plotting.
         """
-        pass # TODO
+        # check if filename ends with .svg
+        if not filename.lower().endswith(".svg"):
+            filename = filename + ".svg"
+        # settings
+        offsetX, offsetY = 50, 50
+        # get the maximal value in the chromatogram
+        maxChromVal = 0
+        for key in self.getNucs():
+            maxChromVal = max(maxChromVal, max(self.__getitem__(key)))
+        # create an svg object
+        svg = svgwrite.Drawing(filename=filename,
+            size=(2 * offsetX + self.length + indents, 2 * offsetY + maxChromVal))
+        # plot surrounding box
+        drawbox = svg.rect(insert=(offsetX, offsetY), size=(self.length + indents, maxChromVal),
+            fill="white", stroke="black")
+        svg.add(drawbox)
+        # plot legend
+        for i, key in enumerate(self.getNucs()):
+            # add the box
+            style = "fill:rgba(%s,%s,%s,0.3);" % colorCodes[i % len(colorCodes)]
+            style += "stroke:rgb(%s,%s,%s)" % colorCodes[i % len(colorCodes)]
+            box = svg.rect(insert=(offsetX + 15, offsetY + 15 + i * 24), size=(24, 12), style=style)
+            svg.add(box)
+            # add the text
+            style = "font-size:20px"
+            text = svg.text(key, insert=(offsetX + 52, offsetY + 27 + i * 24), style=style)
+            svg.add(text)
+        # plot bottom scale/ruler
+        for i in range(0, self.length, 100):
+            # ruler line
+            line = svg.line(
+                start=(offsetX + i + indents, offsetY + maxChromVal),
+                end=(offsetX + i + indents, offsetY + maxChromVal + 10),
+                style="stroke:black;stroke-width:1"
+            )
+            svg.add(line)
+            # ruler text
+            text = svg.text(str(i), insert=(offsetX + i + indents - 5, offsetY + maxChromVal + 28))
+            svg.add(text)
+        # plot each trace
+        for i, key in enumerate(self.getNucs()):
+            # plot the trace
+            points = [(offsetX + indents, offsetY + maxChromVal)] # starting point is always "0", "0"
+            lastPoint = offsetX + indents
+            for j, value in enumerate(self.__getitem__(key)):
+                lastPoint = offsetX + j + indents
+                points.append((lastPoint, offsetY + maxChromVal - value))
+            points.append((lastPoint, offsetY + maxChromVal)) # ending point is always "end", "0"
+            # create the polygon
+            style = "fill:rgba(%s,%s,%s,0.3);" % colorCodes[i % len(colorCodes)]
+            style += "stroke:rgb(%s,%s,%s)" % colorCodes[i % len(colorCodes)]
+            poly = svg.polygon(points, style=style)
+            # add the polygon to the figure
+            svg.add(poly)
+        # save and return the svg object
+        svg.save()
+
 #TODO: annotate, __setitem__(self, key, val), iter(key, window=1)
