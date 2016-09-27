@@ -81,13 +81,11 @@ class DNAChromatogram:
             data['G']
         )
     
-    def save(self, filename, comment=None):
+    def save(self, filename):
         """
             Save a chromatogram to a file.
 
             @param filename The filename to save this chromatogram to.
-            @param comment  An additional string that should be saved
-            as comment in the chromatogram file.
         """
         writer.writeToFile(
             filename,
@@ -96,8 +94,7 @@ class DNAChromatogram:
                 'C' : self.cTrace,
                 'T' : self.tTrace,
                 'G' : self.gTrace,
-            },
-            comment
+            }
         )
     
     def __len__(self):
