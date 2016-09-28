@@ -25,10 +25,14 @@ def isReadable(handle):
 def toSamples(data, sampleSize):
     result = [0]
     while data != "":
-        current, data = bytesToInt(data[0:sampleSize]), data[2:]
-        if current & (1 << (sampleSize * 8 - 1)) != 0: # check first bit (sign bit)
-            current = (1 << sampleSize * 8) - current  # convert to negative
+        current, data = bytesToInt(data[0:sampleSize]), data[sampleSize:]
+        if current & (1 << (sampleSize * 8 - 1)) != 0:   # check first bit (sign bit)
+            current = -((1 << sampleSize * 8) - current) # convert to negative
+        current = result[-1] + current
         result.append(current)
+    result.pop(0)
+    add = -min(result)
+    result = [val + add for val in result]
     return result
 
 def readFile(handle):

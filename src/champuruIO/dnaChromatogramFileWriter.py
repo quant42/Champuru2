@@ -29,8 +29,7 @@ def intToBytes(i, b): # little helper function
     assert False # WTF? What am I expect to do?
 
 def traceToByte(t):
-    result = []
-    prev = 0
+    result, prev = [], 0
     for val in t:
         diff = val - prev
         result.append(intToBytes(diff, 2))
@@ -48,11 +47,16 @@ def writeToFile(filename, dic):
     # are supported
     if not filename.lower().endswith(".scf"):
         filename = filename + ".scf"
+    # check input length
+    lengths = [len(dic[key]) for key in 'ACGT']
+    for key in range(1, 4):
+        assert lengths[0] == lengths[key], "Traces must be of same length"
     # ok, pre-calculate data
     ta = traceToByte(dic['A'])
     tc = traceToByte(dic['C'])
     tg = traceToByte(dic['G'])
     tt = traceToByte(dic['T'])
+    assert len(ta) == len(tc) == len(tg) == len(tt), "Error while converting traces to bytes"
     # bases
     nrOfBases = 0
     # comment
@@ -64,7 +68,7 @@ def writeToFile(filename, dic):
         # magic bytes (.scf)
         outF.write(toBytes([0x2e, 0x73, 0x63, 0x66]))
         # samples
-        sampleLen = len(dic['A'])
+        sampleLen = len(ta) // 2
         outF.write(intToBytes(sampleLen, 4))
         # sampleOffset
         outF.write(toBytes([0x00, 0x00, 0x00, 0x80]))

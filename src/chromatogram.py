@@ -46,13 +46,17 @@ class DNAChromatogram:
             tTrace = np.array(tTrace)
         if isinstance(gTrace, np.ndarray):
             gTrace = np.array(gTrace)
+        # check if there's no negative values in the traces
+        assert min(aTrace) >= 0, "Negative measurement value in aTrace"
+        assert min(cTrace) >= 0, "Negative measurement value in cTrace"
+        assert min(tTrace) >= 0, "Negative measurement value in tTrace"
+        assert min(gTrace) >= 0, "Negative measurement value in gTrace"
         # check if the lengths of each trace is equal
         # (or otherwise sayed, if there's any trace that has a
         # different length compared to the other traces).
         lengths = [len(aTrace), len(tTrace), len(cTrace), len(gTrace)]
         for i in range(1, len(lengths)):
-            if lengths[0] != lengths[i]:
-                raise Exception("Can't create new chromatogram object - traces differ in length")
+            assert lengths[0] == lengths[i], "Can't create new chromatogram object - traces differ in length (%s)" % lengths
         self.length = lengths[0]
         # assign
         self.aTrace, self.cTrace, self.tTrace, self.gTrace = \
