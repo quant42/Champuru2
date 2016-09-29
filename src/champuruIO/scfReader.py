@@ -23,17 +23,20 @@ def isReadable(handle):
     return handle.read(4) == _as_bytes('.scf')
 
 def toSamples(data, sampleSize):
-    result = [0]
+    # build the sample array
+    samples = []
     while data != "":
         current, data = bytesToInt(data[0:sampleSize]), data[sampleSize:]
         if current & (1 << (sampleSize * 8 - 1)) != 0:   # check first bit (sign bit)
             current = -((1 << sampleSize * 8) - current) # convert to negative
-        current = result[-1] + current
-        result.append(current)
-    result.pop(0)
-    add = -min(result)
-    result = [val + add for val in result]
-    return result
+        samples.append(current)
+    # calculate delta
+    for z in [1,2]:
+        pSample = 0
+        for i in range(len(samples)):
+            samples[i] = samples[i] + pSample
+            pSample = samples[i]
+    return samples
 
 def readFile(handle):
     """
