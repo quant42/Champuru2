@@ -29,11 +29,16 @@ def intToBytes(i, b): # little helper function
     assert False # WTF? What am I expect to do?
 
 def traceToByte(t):
-    result, prev = [], 0
-    for val in t:
-        diff = val - prev
-        result.append(intToBytes(diff, 2))
-        prev = val
+    # convert to delta
+    samples = t[:]
+    for z in [1, 2]:
+        pDelta = 0
+        for i in range(len(samples)):
+            pSample = samples[i]
+            samples[i] = samples[i] - pDelta
+            pDelta = pSample
+    # convert deltas to bytes
+    result = [intToBytes(val, 2) for val in samples]
     return result
 
 def writeToFile(filename, dic):
@@ -68,12 +73,12 @@ def writeToFile(filename, dic):
         # magic bytes (.scf)
         outF.write(toBytes([0x2e, 0x73, 0x63, 0x66]))
         # samples
-        sampleLen = len(ta) // 2
+        sampleLen = len(ta) # ta = list of byte strings to write -> don't divide by 2
         outF.write(intToBytes(sampleLen, 4))
         # sampleOffset
         outF.write(toBytes([0x00, 0x00, 0x00, 0x80]))
         # nrBases
-        outF.write(intToBytes(len(dic['A']), 4))
+        outF.write(intToBytes(nrOfBases, 4))
         # nrBasesLeftClip
         outF.write(toBytes([0x00, 0x00, 0x00, 0x00]))
         # nrBasesRightClip - none
@@ -98,7 +103,7 @@ def writeToFile(filename, dic):
         privOffset = commentOff + len(comment)
         outF.write(intToBytes(privOffset, 4))
         # spare
-        outF.write(toBytes([0x00 for i in range(8 * 3)]))
+        outF.write(toBytes([0x00 for i in range(72)]))
         # write samples
         outF.write(toBytes(ta))
         outF.write(toBytes(tc))
