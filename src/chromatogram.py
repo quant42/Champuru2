@@ -7,7 +7,7 @@ from champuruIO import dnaChromatogramFileWriter as writer
 from scipy import signal
 import numpy as np
 import svgwrite
-
+import random
 __doc__ = """
 This file basically consists out of the DNAChromatogram class
 that is used in order to represent and handle DNA chromatograms.
@@ -257,16 +257,40 @@ class DNAChromatogram:
         if not filename.lower().endswith(".svg"):
             filename = filename + ".svg"
         # settings
-        offsetX, offsetY = 50, 50
+        offsetX, offsetY, height = 50, 50, 50
         # get the maximal value in the chromatogram
         maxChromVal = 0
         for key in self.getNucs():
             maxChromVal = max(maxChromVal, max(self.__getitem__(key)))
         # create an svg object
         svg = svgwrite.Drawing(filename=filename,
-            size=(2 * offsetX + self.length + indents, 2 * offsetY + maxChromVal))
-        
-        # save and return the svg object        
+            size=(2 * offsetX + self.length + indents, 2 * offsetY + height))
+        # plot surrounding box
+        drawbox = svg.rect(insert=(offsetX, offsetY), size=(self.length + indents, height),
+            fill="white", stroke="black")
+        svg.add(drawbox)
+        # plot bottom scale/ruler
+        for i in range(0, self.length, 100):
+            # ruler line
+            line = svg.line(
+                start=(offsetX + i + indents, offsetY + height),
+                end=(offsetX + i + indents, offsetY + height + 10),
+                style="stroke:black;stroke-width:1"
+            )
+            svg.add(line)
+            # ruler text
+            text = svg.text(str(i), insert=(offsetX + i + indents - 5, offsetY + height + 28))
+            svg.add(text)
+        # plot the trace
+        trace = self.__getitem__(key)
+        for i, val in enumerate(trace):
+            line = svg.line(
+                start=(offsetX + i + indents, offsetY),
+                end=(offsetX + i + indents, offsetY + height),
+                style="stroke:hsl({},100%,50%);stroke-width:1".format(val / maxChromVal * 180)
+            )
+            svg.add(line)
+        # save and return the svg object
         svg.save()
     
     def findLocalMaximas(self):
