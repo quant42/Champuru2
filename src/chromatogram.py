@@ -13,6 +13,40 @@ This file basically consists out of the DNAChromatogram class
 that is used in order to represent and handle DNA chromatograms.
 """
 
+def _getGaussianWeights(sigma):
+    """
+        Get the needed weights for the gaussian filter.
+
+        @param sigma The sigma value for the gaussian
+        filter to get the weights for.
+        @return The needed weights for the gaussian
+        filter.
+    """
+    weights = np.arange(0, 10*sigma+2, dtype=float) # after 10*sigma the weight is principally 0
+    weights = (1 / (np.sqrt(2 * np.pi) * sigma)) * (np.e ** (-(weights ** 2 / (2 * sigma ** 2))))
+    return weights
+
+def gf(data, sigma):
+    """
+        Apply a gaussian filter to a signal.
+
+        @param data  The signal to apply the filter on.
+        @param sigma The sigma value of the gaussian filter.
+        @return The filtered signal.
+    """
+    newData, weights, i = [], _getGaussianWeights(sigma), 0
+    weightLen = min(len(weights), len(data))
+    for pos, val in enumerate(data):
+        summe = val * weights[0]
+        for dist in range(1, weightLen):
+            wd, pN, pP = weights[dist], pos - dist, pos + dist
+            dpN = data[pN] if 0 <= pN < weightLen else 0
+            dpP = data[pP] if 0 <= pP < weightLen else 0
+            summe += dpN * wd
+            summe += dpP * wd
+        newData.append(int(round(summe)))
+    return newData
+
 class DNAChromatogram:
     """ Class representing a DNA chromatogram. """
     
@@ -208,5 +242,51 @@ class DNAChromatogram:
             svg.add(poly)
         # save and return the svg object
         svg.save()
+    
+    def plotTraceAsColorMap(self, filename, traceKey, indents=0):
+        """
+            Plot the chromatogram to a given file. In contrast to the normal plot method,
+            this plot only a trace, where the height data is represented by colors.
 
+            @param filename The filename of the file to plot the
+            chromatogram to.
+            @param traceKey The key of the trace to plot.
+            @param indents Number of indents values to plot at the beginning of the trace.
+        """
+        # check filename if it ends with .svg
+        if not filename.lower().endswith(".svg"):
+            filename = filename + ".svg"
+        # settings
+        offsetX, offsetY = 50, 50
+        # get the maximal value in the chromatogram
+        maxChromVal = 0
+        for key in self.getNucs():
+            maxChromVal = max(maxChromVal, max(self.__getitem__(key)))
+        # create an svg object
+        svg = svgwrite.Drawing(filename=filename,
+            size=(2 * offsetX + self.length + indents, 2 * offsetY + maxChromVal))
+        
+        # save and return the svg object        
+        svg.save()
+    
+    def findLocalMaximas(self):
+        """
+            Find local maximas in the trace that may represent
+            a base in the chromatogram.
+
+            @return A list of tuples (pos, trace) where local maximas
+            can be found.
+        """
+        result = []
+        for key in self.getNucs():
+            # get the trace
+            trace = self.__getitem__(key)
+            # filter trace
+            trace = gf(trace, 8)
+            # calculate the cwt transformation
+            cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
+            # TODO
+        result = sorted(result, key=lambda x : x[0])
+        return []
 #TODO: annotate, __setitem__(self, key, val), iter(key, window=1)
+# TODO: add base calling data to save in scf files
