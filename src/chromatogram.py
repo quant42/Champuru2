@@ -259,9 +259,7 @@ class DNAChromatogram:
         # settings
         offsetX, offsetY, height = 50, 50, 50
         # get the maximal value in the chromatogram
-        maxChromVal = 0
-        for key in self.getNucs():
-            maxChromVal = max(maxChromVal, max(self.__getitem__(key)))
+        maxChromVal = max(self.__getitem__(traceKey))
         # create an svg object
         svg = svgwrite.Drawing(filename=filename,
             size=(2 * offsetX + self.length + indents, 2 * offsetY + height))
@@ -282,7 +280,7 @@ class DNAChromatogram:
             text = svg.text(str(i), insert=(offsetX + i + indents - 5, offsetY + height + 28))
             svg.add(text)
         # plot the trace
-        trace = self.__getitem__(key)
+        trace = self.__getitem__(traceKey)
         for i, val in enumerate(trace):
             line = svg.line(
                 start=(offsetX + i + indents, offsetY),
@@ -305,7 +303,7 @@ class DNAChromatogram:
         for key in self.getNucs():
             # get the trace
             trace = self.__getitem__(key)
-            # filter trace
+            # filter trace -> low and high pass filter
             trace = gf(trace, 8)
             # calculate the cwt transformation
             cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
