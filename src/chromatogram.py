@@ -4,10 +4,12 @@
 from __future__ import division, print_function
 from champuruIO import dnaChromatogramFileReader as reader
 from champuruIO import dnaChromatogramFileWriter as writer
+from scipy.optimize import curve_fit
 from scipy import signal
 import numpy as np
 import svgwrite
 import random
+
 __doc__ = """
 This file basically consists out of the DNAChromatogram class
 that is used in order to represent and handle DNA chromatograms.
@@ -177,7 +179,7 @@ class DNAChromatogram:
         """
         return ['A', 'C', 'T' , 'G']
     
-    def plot(self, filename, indents=0, colorCodes=[(255,0,0),(0,255,0),(0,0,255),(0,0,0)]):
+    def plot(self, filename, indents=0, colorCodes=[(255,0,0),(0,255,0),(0,0,255),(0,0,0)], keys='ACTG'):
         """
             Plot the chromatogram to a given file.
 
@@ -185,6 +187,7 @@ class DNAChromatogram:
             chromatogram to.
             @param indents Number of indents values to plot at the beginning of the trace.
             @param colorCodes Color codes to use for plotting.
+            @param keys The name/key of/for the traces to plot.
         """
         # check if filename ends with .svg
         if not filename.lower().endswith(".svg"):
@@ -193,7 +196,7 @@ class DNAChromatogram:
         offsetX, offsetY = 50, 50
         # get the maximal value in the chromatogram
         maxChromVal = 0
-        for key in self.getNucs():
+        for key in keys:
             maxChromVal = max(maxChromVal, max(self.__getitem__(key)))
         # create an svg object
         svg = svgwrite.Drawing(filename=filename,
@@ -203,7 +206,7 @@ class DNAChromatogram:
             fill="white", stroke="black")
         svg.add(drawbox)
         # plot legend
-        for i, key in enumerate(self.getNucs()):
+        for i, key in enumerate(keys):
             # add the box
             style = "fill:rgba(%s,%s,%s,0.3);" % colorCodes[i % len(colorCodes)]
             style += "stroke:rgb(%s,%s,%s)" % colorCodes[i % len(colorCodes)]
@@ -226,7 +229,7 @@ class DNAChromatogram:
             text = svg.text(str(i), insert=(offsetX + i + indents - 5, offsetY + maxChromVal + 28))
             svg.add(text)
         # plot each trace
-        for i, key in enumerate(self.getNucs()):
+        for i, key in enumerate(keys):
             # plot the trace
             points = [(offsetX + indents, offsetY + maxChromVal)] # starting point is always "0", "0"
             lastPoint = offsetX + indents
@@ -247,6 +250,7 @@ class DNAChromatogram:
         """
             Plot the chromatogram to a given file. In contrast to the normal plot method,
             this plot only a trace, where the height data is represented by colors.
+            This plot works best after baseline and skyline correction.
 
             @param filename The filename of the file to plot the
             chromatogram to.
@@ -291,24 +295,55 @@ class DNAChromatogram:
         # save and return the svg object
         svg.save()
     
-    def findLocalMaximas(self):
+    def filter(self):
         """
-            Find local maximas in the trace that may represent
-            a base in the chromatogram.
-
-            @return A list of tuples (pos, trace) where local maximas
-            can be found.
+            Filter the chromatogram.
         """
-        result = []
-        for key in self.getNucs():
-            # get the trace
-            trace = self.__getitem__(key)
-            # filter trace -> low and high pass filter
-            trace = gf(trace, 8)
-            # calculate the cwt transformation
+        def filterTrace(trace):
+            # general
+            fpoly = lambda x, a, b, c, d, e : a * x**4 + b * x**3 + c * x**2 + d * x + e
+            # basic noise correction - low-pass filter
+#            signal.butter(5, 100)
+#            trace = signal.savgol_filter(trace, 5, 3)
+            # get an estimation for the baseline
+#            baseline, pcov = curve_fit(func, xdata, ydata)
+            # get an estimation for the skyline
             cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
-            # TODO
-        result = sorted(result, key=lambda x : x[0])
-        return []
+            maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
+            print(maximas)
+            pSky, pCovSky = curve_fit(fpoly, maximas, np.array([trace[maxima] for maxima in maximas]))
+            print(pSky)
+            # give the filtered trace back
+            return trace
+        self.aTrace = filterTrace(self.aTrace)
+        self.tTrace = filterTrace(self.tTrace)
+        self.cTrace = filterTrace(self.cTrace)
+        self.gTrace = filterTrace(self.gTrace)
+    
+    def getOverlapPosition(self, oChrom):
+        """
+            Get the overlap position, where the two chromatograms overlap.
+
+            @param oChrom The chromatogram to overlap this chromatogram with. (This chromatogram
+            should already be reversed, if it is representing a reversed chromatogram.)
+            @return A list with indication positions.
+        """
+        def getTraceExtremas(chrom):
+            result = {}
+            for key in chrom.getNucs():
+                # get the trace
+                trace = chrom.__getitem__(key)
+                # calculate the cwt transformation
+                cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
+                # get maximas in the cwt transformation
+                maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
+                # save
+                result[key] = maximas
+            return result
+        ext1 = getTraceExtremas(self)
+        ext2 = getTraceExtremas(oTrace)
+        # ok, try to best overlap the extremas
+        
+    
 #TODO: annotate, __setitem__(self, key, val), iter(key, window=1)
 # TODO: add base calling data to save in scf files
