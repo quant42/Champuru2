@@ -5,6 +5,7 @@ from __future__ import division, print_function
 from champuruIO import dnaChromatogramFileReader as reader
 from champuruIO import dnaChromatogramFileWriter as writer
 from scipy.optimize import curve_fit
+from math import e, ceil, sqrt
 from scipy import signal
 import numpy as np
 import svgwrite
@@ -49,6 +50,27 @@ def gf(data, sigma):
         newData.append(int(round(summe)))
     return newData
 
+def mms(seq):
+    """
+        Solver for the maximum sub sequence problem.
+
+        @param seq The sequence to solve the maximum sub sequence for.
+        @return Indices (start, stop) where the sequence is maximus.
+    """
+    # Algorithm - see: https://www.bio.ifi.lmu.de/mitarbeiter/volker-heun/notes/ab6.pdf
+    seq, sl = np.array(seq), len(seq)
+    maxscore, l, r = 0, 1, 0
+    rmaxscore, rstart, i = 0, 1, 0
+    while i < sl:
+        if rmaxscore + seq[i] > seq[i]:
+            rmaxscore += seq[i]
+        else:
+            rmaxscore, rstart = seq[i], i
+        if rmaxscore > maxscore:
+            maxscore, l, r = rmaxscore, rstart, i
+        i += 1
+    return (l, r)
+
 class DNAChromatogram:
     """ Class representing a DNA chromatogram. """
     
@@ -62,6 +84,8 @@ class DNAChromatogram:
     gTrace = np.array([])
     """ The trace length """
     length = 0
+    """ Whether the chromatogram got normalized """
+    normalized = False
     
     def __init__(self, aTrace, cTrace, tTrace, gTrace):
         """
@@ -74,13 +98,13 @@ class DNAChromatogram:
         """
         # check the type of the traces; convert to np.array if needed
         # if this doesn't work -> error
-        if isinstance(aTrace, np.ndarray):
+        if not isinstance(aTrace, np.ndarray):
             aTrace = np.array(aTrace)
-        if isinstance(cTrace, np.ndarray):
+        if not isinstance(cTrace, np.ndarray):
             cTrace = np.array(cTrace)
-        if isinstance(tTrace, np.ndarray):
+        if not isinstance(tTrace, np.ndarray):
             tTrace = np.array(tTrace)
-        if isinstance(gTrace, np.ndarray):
+        if not isinstance(gTrace, np.ndarray):
             gTrace = np.array(gTrace)
         # check if there's no negative values in the traces
         assert min(aTrace) >= 0, "Negative measurement value in aTrace"
@@ -154,8 +178,8 @@ class DNAChromatogram:
         if key == "T": return self.tTrace
         if key == "G": return self.gTrace
         if key == "Z":  # equivalent to the python zip transformation
-            return zip( # but programmed with numpy
-                self.aTrace, self.cTrace, self.tTrace, self.gTrace
+            return np.array( # but programmed with numpy
+                [self.aTrace, self.cTrace, self.tTrace, self.gTrace]
             ).T
         raise KeyError("Key: %s not defined for chromatogram object" % key)
     
@@ -228,6 +252,13 @@ class DNAChromatogram:
             # ruler text
             text = svg.text(str(i), insert=(offsetX + i + indents - 5, offsetY + maxChromVal + 28))
             svg.add(text)
+        for i in range(0, int(ceil(maxChromVal)), 100):
+            line = svg.line(
+                start=(offsetX-10, offsetY + maxChromVal - i),
+                end=(offsetX, offsetY + maxChromVal - i),
+                style="stroke:black;stroke-width:1"
+            )
+            svg.add(line)
         # plot each trace
         for i, key in enumerate(keys):
             # plot the trace
@@ -295,55 +326,99 @@ class DNAChromatogram:
         # save and return the svg object
         svg.save()
     
-    def filter(self):
+    def normalize(self):
         """
-            Filter the chromatogram.
+            Normalize the chromatogram, so that it is hopefully suited for chromatogram combination.
         """
-        def filterTrace(trace):
+        # already normalized? quit
+        if self.normalized: return
+        # 1. do baseline correction
+        # TODO: check if needed -> if yes, do it
+        # 2. Cut out the "interesting" region
+        # this means, get rid of chromatogram regions that don't make any sense to align
+        seq = []
+        for vals in self['Z']:
+            if max(vals) > 20: seq.append(1) # TODO: check if there's a better treshold than 20
+            else: seq.append(-1)
+        start, stop = mms(seq)
+        assert start < stop
+        self.aTrace = self.aTrace[start:stop]
+        self.cTrace = self.cTrace[start:stop]
+        self.tTrace = self.tTrace[start:stop]
+        self.gTrace = self.gTrace[start:stop]
+        self.length = len(self.aTrace)
+        # 3. do skyline correction
+        def doSkylineCorrection(trace):
             # general
-            fpoly = lambda x, a, b, c, d, e : a * x**4 + b * x**3 + c * x**2 + d * x + e
-            # basic noise correction - low-pass filter
-#            signal.butter(5, 100)
-#            trace = signal.savgol_filter(trace, 5, 3)
-            # get an estimation for the baseline
-#            baseline, pcov = curve_fit(func, xdata, ydata)
-            # get an estimation for the skyline
+            tl = len(trace)
+            # skyline estimation
             cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
             maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
-            print(maximas)
-            pSky, pCovSky = curve_fit(fpoly, maximas, np.array([trace[maxima] for maxima in maximas]))
-            print(pSky)
-            # give the filtered trace back
+            maxVals = [(maxima, cwtTrace[maxima]) for maxima in maximas] # this is for maxima filtering
+            maxVals = filter(lambda x:x[1]>20, maxVals) # TODO: check if there's a better treshold than 20
+            # create the maxima arrays
+            maximas = np.array([x[0] for x in maxVals])
+            maxVals = np.array([x[1] for x in maxVals])
+            # expected peak height ~ exp. decay ratio
+            pSkyF = lambda x, a, b : a * e ** (-b * x)
+            (a, b), pConv = curve_fit(pSkyF, maximas, maxVals, p0=(max(maxVals), 10E-7))
+            skyline = np.array([pSkyF(x, a, b) for x in range(tl)])
+            skyline = np.array([max(1, skyline[x]) for x in range(tl)])
+            # normalize
+            trace = np.array([ trace[x] / skyline[x] * 100 for x in range(tl) ])
+            # return
             return trace
-        self.aTrace = filterTrace(self.aTrace)
-        self.tTrace = filterTrace(self.tTrace)
-        self.cTrace = filterTrace(self.cTrace)
-        self.gTrace = filterTrace(self.gTrace)
+        self.aTrace = doSkylineCorrection(self.aTrace)
+        self.cTrace = doSkylineCorrection(self.cTrace)
+        self.tTrace = doSkylineCorrection(self.tTrace)
+        self.gTrace = doSkylineCorrection(self.gTrace)
+        # 4. Check if chromatogram needs filtering -> if yes, filter it
+        # TODO: check if needed -> if yes, do it
+        # remember that this chrom got normalized
+        self.normalized = True
     
-    def getOverlapPosition(self, oChrom):
+    def getFuzzyRep(self):
         """
-            Get the overlap position, where the two chromatograms overlap.
+            Get a fuzzy representation of this chromatogram.
+        """
+        if not self.normalized: self.normalize()
+        def valToFuzzy(val): # return value between inclusive 0 and 5
+            assert val >= 0
+            return min(val // 20, 5)
+        seq = []
+        for va, vc, vt, vg in self['Z']:
+            seq.append((valToFuzzy(va), valToFuzzy(vc), valToFuzzy(vt), valToFuzzy(vg)))
+        return np.array(seq)
+    
+    def align(self, oChrom):
+        """
+            Align this chromarogram with another chromatogram.
 
-            @param oChrom The chromatogram to overlap this chromatogram with. (This chromatogram
-            should already be reversed, if it is representing a reversed chromatogram.)
-            @return A list with indication positions.
+            @param oChrom the other chromatogram to align this chromatogram with.
         """
-        def getTraceExtremas(chrom):
-            result = {}
-            for key in chrom.getNucs():
-                # get the trace
-                trace = chrom.__getitem__(key)
-                # calculate the cwt transformation
-                cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
-                # get maximas in the cwt transformation
-                maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
-                # save
-                result[key] = maximas
-            return result
-        ext1 = getTraceExtremas(self)
-        ext2 = getTraceExtremas(oTrace)
-        # ok, try to best overlap the extremas
+        # get a string representation of the chromatogram
+        s1 = self.getFuzzyRep()
+        s2 = oChrom.getFuzzyRep()
+        # create the matrix
+        matrix = np.zeros((len(s1) + 1, len(s2) + 1))
+        # fill out the matrix
+        def d(a, b): # val between inclusive -2 and 3
+            return sqrt(a * b) - 2
+        def diff(v1, v2):
+            return max([d(v1[i], v2[i]) for i in range(4)])
+        for p1, v1 in enumerate(s1):
+            for p2, v2 in enumerate(s2):
+                matrix[p1+1][p2+1] = max(
+                    0, # local alignment
+                    matrix[p1][p2+1] - 1,
+                    matrix[p1+1][p2] - 1,
+                    matrix[p1][p2] + diff(v1, v2)
+                )
+        # TODO: heatmap of matrix
+        import matplotlib.pyplot as plt
+        plt.pcolor(matrix)
+        plt.savefig("matrix.png")
+        # find maximas in matrix
         
-    
 #TODO: annotate, __setitem__(self, key, val), iter(key, window=1)
 # TODO: add base calling data to save in scf files
