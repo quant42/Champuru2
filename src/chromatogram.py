@@ -5,8 +5,9 @@ from __future__ import division, print_function
 from champuruIO import dnaChromatogramFileReader as reader
 from champuruIO import dnaChromatogramFileWriter as writer
 from scipy.optimize import curve_fit
+from statistics import mean, stdev
 from math import e, ceil, sqrt
-from scipy import signal
+from scipy import signal, fftpack
 import numpy as np
 import svgwrite
 import random
@@ -70,6 +71,19 @@ def mms(seq):
             maxscore, l, r = rmaxscore, rstart, i
         i += 1
     return (l, r)
+
+from itertools import islice
+
+def window(seq, n=2): # see http://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator-in-python
+    "Returns a sliding window (of width n) over data from the iterable"
+    "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+    it = iter(seq)
+    result = tuple(islice(it, n))
+    if len(result) == n:
+        yield result    
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
 
 class DNAChromatogram:
     """ Class representing a DNA chromatogram. """
@@ -326,6 +340,73 @@ class DNAChromatogram:
         # save and return the svg object
         svg.save()
     
+    def cutout(self, windowSize=100, treshold=20):
+        """
+            Cut out the interest region from the chromatogram.
+
+            The end-point finding algorithm is basically doing the following:
+                - Combine the chromatogram traces into a single trace
+                - Use a window of length [windowSize=100] to slide over the chromatogram.
+                - Use fft to calculate the signal amplitude of each window position
+                - Once the signal amplitude is falling below a treshold - cut off
+
+            @param windowSize The size of the sliding over window
+            @param treshold The cutting of treshold. (Default 20 - if the amplitude is lower, the signal is
+            not easy to analyse eigther ...)
+        """
+        # STARTING POINT - cut the starting off - before(!) cutting of the end
+        # due to the fact, that there may be spaces at the beginning
+        # and if these spaces are too hudge - they may be considered as endpoints ...
+        start = 0
+        self.aTrace = self.aTrace[start:]
+        self.cTrace = self.cTrace[start:]
+        self.tTrace = self.tTrace[start:]
+        self.gTrace = self.gTrace[start:]
+        self.length = len(self.aTrace)
+        # END POINT
+        # combine traces
+        seq = [ sum(vals) for vals in self['Z'] ]
+        # use a window to iterate over the sequence (=combined trace)
+        # and calculate the fft for each window
+        amplis = []
+        for pos, w in enumerate(window(seq, windowSize)):
+            fft = fftpack.fft(w)
+            amplitudes = 2.0 / 100 * np.abs(fft[:100//2])
+            signalAmpli = max(amplitudes)
+            amplis.append(signalAmpli)
+#        import matplotlib.pyplot as plt
+#        plt.plot(amplis)
+#        plt.show()
+        stop = len(amplis)
+        for pos, val in enumerate(amplis):
+            if val < treshold:
+                stop = pos
+                break
+#        # ok, check if there's a drop down somewhere
+#        # this means that the measurement is dropping below mean - 3 * stddev
+#        # Do not start to search from the end to the beginning, because (although not often the case) there may be little left over peaks at the end of the chromatogram.)
+#        startCheck = 20 # start with 20 sample points - ey - come on, that's nothing in comparison to the trace length
+#        summe, stop = sum(amplis[:startCheck]), len(amplis)
+#        for nr in xrange(startCheck, len(amplis)):
+#            # calculate the mean/average
+#            summe = summe + amplis[nr]
+#            avg = summe / nr
+#            # calculate the stdev
+#            std = 0
+#            for i in xrange(nr):
+#                std += (amplis[i] - avg) ** 2
+#            std = sqrt((1 / (nr - 1)) * std)
+#            # check for endpoint
+#            print(i, amplis[nr], avg - drop * std, avg, drop, std)
+#            if amplis[nr] < avg - drop * std:
+#                stop = nr
+#                break
+        self.aTrace = self.aTrace[:stop]
+        self.cTrace = self.cTrace[:stop]
+        self.tTrace = self.tTrace[:stop]
+        self.gTrace = self.gTrace[:stop]
+        self.length = len(self.aTrace)
+    
     def normalize(self):
         """
             Normalize the chromatogram, so that it is hopefully suited for chromatogram combination.
@@ -335,18 +416,8 @@ class DNAChromatogram:
         # 1. do baseline correction
         # TODO: check if needed -> if yes, do it
         # 2. Cut out the "interesting" region
+        self.cutout()
         # this means, get rid of chromatogram regions that don't make any sense to align
-        seq = []
-        for vals in self['Z']:
-            if max(vals) > 20: seq.append(1) # TODO: check if there's a better treshold than 20
-            else: seq.append(-1)
-        start, stop = mms(seq)
-        assert start < stop
-        self.aTrace = self.aTrace[start:stop]
-        self.cTrace = self.cTrace[start:stop]
-        self.tTrace = self.tTrace[start:stop]
-        self.gTrace = self.gTrace[start:stop]
-        self.length = len(self.aTrace)
         # 3. do skyline correction
         def doSkylineCorrection(trace):
             # general
