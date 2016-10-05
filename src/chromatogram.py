@@ -345,9 +345,7 @@ class DNAChromatogram:
             @param start The starting position.
             @param stop  The end position.
         """
-        assert 0 <= start <= self.length
-        assert 0 <= stop <= self.length
-        assert start < stop
+        assert 0 <= start < stop <= self.length
         self.aTrace = self.aTrace[start:stop]
         self.cTrace = self.cTrace[start:stop]
         self.tTrace = self.tTrace[start:stop]
@@ -356,21 +354,23 @@ class DNAChromatogram:
 
     def cutoutAuto(self, windowSize=100, treshold=20):
         """
-            Cut out the uninterest start and end region from the chromatogram. Apply this method only before
-            reversing the chromatogram.
+            Cut out the uninterest start and end region from the chromatogram.
 
-            The end-point finding algorithm is basically doing the following:
                 - Combine the chromatogram traces into a single trace
                 - Use a window of length [windowSize=100] to slide over the chromatogram.
                 - Use fft to calculate the signal amplitude of each window position
-                - Once the signal amplitude is falling mostly falling below a treshold - cut off
+                - Use mms to find where the signal is good.
 
-            @param windowSize The size of the sliding over window
-            @param treshold The cutting of treshold. (If the amplitude is too low, the signal doesn't become
-            easier to analyse eigther ...)
+            @param windowSize The size of the sliding over window.
+            @param treshold A treshold (minimal amplitude) of the signal to analyse for filtering the rest of
+            the trace.
         """
         # combine traces
         seq = [ sum(vals) for vals in self['Z'] ]
+        # add a few values, so that seq has exactly the same length as the traces
+        # this is needed in case, that the analysed sequence is longer than the chromatogram
+        seq.extend([seq[len(seq) - 1 - i] for i in range(self.length + windowSize - 1 - len(seq))])
+        assert len(seq) == self.length + windowSize - 1
         # use a window to iterate over the sequence (=combined trace)
         # and calculate the fft for each window
         amplis = []
@@ -379,49 +379,29 @@ class DNAChromatogram:
             amplitudes = 2.0 / 100 * np.abs(fft[:100//2])
             signalAmpli = max(amplitudes)
             amplis.append(signalAmpli)
+        assert len(amplis) == self.length
 #        import matplotlib.pyplot as plt
 #        plt.plot(amplis)
 #        plt.show()
-        amplisT = np.array(amplis) - treshold
-        start, stop = mms(amplistT)
-#        stop = len(amplis)
-#        for pos, val in enumerate(amplis):
-#            if val < treshold:
-#                stop = pos
-#                break
-#        # ok, check if there's a drop down somewhere
-#        # this means that the measurement is dropping below mean - 3 * stddev
-#        # Do not start to search from the end to the beginning, because (although not often the case) there may be little left over peaks at the end of the chromatogram.)
-#        startCheck = 20 # start with 20 sample points - ey - come on, that's nothing in comparison to the trace length
-#        summe, stop = sum(amplis[:startCheck]), len(amplis)
-#        for nr in xrange(startCheck, len(amplis)):
-#            # calculate the mean/average
-#            summe = summe + amplis[nr]
-#            avg = summe / nr
-#            # calculate the stdev
-#            std = 0
-#            for i in xrange(nr):
-#                std += (amplis[i] - avg) ** 2
-#            std = sqrt((1 / (nr - 1)) * std)
-#            # check for endpoint
-#            print(i, amplis[nr], avg - drop * std, avg, drop, std)
-#            if amplis[nr] < avg - drop * std:
-#                stop = nr
-#                break
-        self.aTrace = self.aTrace[start:stop]
-        self.cTrace = self.cTrace[start:stop]
-        self.tTrace = self.tTrace[start:stop]
-        self.gTrace = self.gTrace[start:stop]
-        self.length = len(self.aTrace)
-        # STARTING POINT
-        start, stop = 0, len()
-        #while not stop:
-            # 
-        self.aTrace = self.aTrace[start:]
-        self.cTrace = self.cTrace[start:]
-        self.tTrace = self.tTrace[start:]
-        self.gTrace = self.gTrace[start:]
-        self.length = len(self.aTrace)
+        # convert to something useable by mms
+        converged, start, stop = False, 0, len(amplis)
+        while not converged:
+            print(start, stop)
+            amplisF = filter(lambda x : x > treshold, amplis[start:stop])
+            avg = mean(amplisF)
+            std_ = 3 * stdev(amplisF)
+            tSig = [-1 if abs(avg - val) > std_ or val < treshold else 1 for val in amplis]
+            assert max(tSig) > 0
+            # call mms problem solver
+            startX, stopX = mms(tSig)
+            startX = max(startX - windowSize // 2, 0)
+            stopX = min(stopX + windowSize // 2, self.length)
+            # check if converged
+            converged = start == startX and stop == stopX
+            start, stop = startX, stopX
+        # cut
+        self.cutout(start, stop)
+        return (start, stop, amplis)
     
     def normalize(self):
         """
