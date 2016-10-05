@@ -59,17 +59,15 @@ def mms(seq):
         @return Indices (start, stop) where the sequence is maximus.
     """
     # Algorithm - see: https://www.bio.ifi.lmu.de/mitarbeiter/volker-heun/notes/ab6.pdf
-    seq, sl = np.array(seq), len(seq)
     maxscore, l, r = 0, 1, 0
-    rmaxscore, rstart, i = 0, 1, 0
-    while i < sl:
-        if rmaxscore + seq[i] > seq[i]:
-            rmaxscore += seq[i]
+    rmaxscore, rstart = 0, 1
+    for i, val in enumerate(seq):
+        if rmaxscore + val > val:
+            rmaxscore += val
         else:
-            rmaxscore, rstart = seq[i], i
+            rmaxscore, rstart = val, i
         if rmaxscore > maxscore:
             maxscore, l, r = rmaxscore, rstart, i
-        i += 1
     return (l, r)
 
 from itertools import islice
@@ -340,30 +338,37 @@ class DNAChromatogram:
         # save and return the svg object
         svg.save()
     
-    def cutout(self, windowSize=100, treshold=20):
+    def cutout(self, start, stop):
         """
-            Cut out the interest region from the chromatogram.
+            Get a chromatogram subpart.
+
+            @param start The starting position.
+            @param stop  The end position.
+        """
+        assert 0 <= start <= self.length
+        assert 0 <= stop <= self.length
+        assert start < stop
+        self.aTrace = self.aTrace[start:stop]
+        self.cTrace = self.cTrace[start:stop]
+        self.tTrace = self.tTrace[start:stop]
+        self.gTrace = self.gTrace[start:stop]
+        self.length = len(self.aTrace)
+
+    def cutoutAuto(self, windowSize=100, treshold=20):
+        """
+            Cut out the uninterest start and end region from the chromatogram. Apply this method only before
+            reversing the chromatogram.
 
             The end-point finding algorithm is basically doing the following:
                 - Combine the chromatogram traces into a single trace
                 - Use a window of length [windowSize=100] to slide over the chromatogram.
                 - Use fft to calculate the signal amplitude of each window position
-                - Once the signal amplitude is falling below a treshold - cut off
+                - Once the signal amplitude is falling mostly falling below a treshold - cut off
 
             @param windowSize The size of the sliding over window
-            @param treshold The cutting of treshold. (Default 20 - if the amplitude is lower, the signal is
-            not easy to analyse eigther ...)
+            @param treshold The cutting of treshold. (If the amplitude is too low, the signal doesn't become
+            easier to analyse eigther ...)
         """
-        # STARTING POINT - cut the starting off - before(!) cutting of the end
-        # due to the fact, that there may be spaces at the beginning
-        # and if these spaces are too hudge - they may be considered as endpoints ...
-        start = 0
-        self.aTrace = self.aTrace[start:]
-        self.cTrace = self.cTrace[start:]
-        self.tTrace = self.tTrace[start:]
-        self.gTrace = self.gTrace[start:]
-        self.length = len(self.aTrace)
-        # END POINT
         # combine traces
         seq = [ sum(vals) for vals in self['Z'] ]
         # use a window to iterate over the sequence (=combined trace)
@@ -377,11 +382,13 @@ class DNAChromatogram:
 #        import matplotlib.pyplot as plt
 #        plt.plot(amplis)
 #        plt.show()
-        stop = len(amplis)
-        for pos, val in enumerate(amplis):
-            if val < treshold:
-                stop = pos
-                break
+        amplisT = np.array(amplis) - treshold
+        start, stop = mms(amplistT)
+#        stop = len(amplis)
+#        for pos, val in enumerate(amplis):
+#            if val < treshold:
+#                stop = pos
+#                break
 #        # ok, check if there's a drop down somewhere
 #        # this means that the measurement is dropping below mean - 3 * stddev
 #        # Do not start to search from the end to the beginning, because (although not often the case) there may be little left over peaks at the end of the chromatogram.)
@@ -401,10 +408,19 @@ class DNAChromatogram:
 #            if amplis[nr] < avg - drop * std:
 #                stop = nr
 #                break
-        self.aTrace = self.aTrace[:stop]
-        self.cTrace = self.cTrace[:stop]
-        self.tTrace = self.tTrace[:stop]
-        self.gTrace = self.gTrace[:stop]
+        self.aTrace = self.aTrace[start:stop]
+        self.cTrace = self.cTrace[start:stop]
+        self.tTrace = self.tTrace[start:stop]
+        self.gTrace = self.gTrace[start:stop]
+        self.length = len(self.aTrace)
+        # STARTING POINT
+        start, stop = 0, len()
+        #while not stop:
+            # 
+        self.aTrace = self.aTrace[start:]
+        self.cTrace = self.cTrace[start:]
+        self.tTrace = self.tTrace[start:]
+        self.gTrace = self.gTrace[start:]
         self.length = len(self.aTrace)
     
     def normalize(self):
