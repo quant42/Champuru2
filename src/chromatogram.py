@@ -351,7 +351,7 @@ class DNAChromatogram:
         self.tTrace = self.tTrace[start:stop]
         self.gTrace = self.gTrace[start:stop]
         self.length = len(self.aTrace)
-
+    
     def cutoutAuto(self, windowSize=100, treshold=20):
         """
             Cut out the uninterest start and end region from the chromatogram.
@@ -386,7 +386,6 @@ class DNAChromatogram:
         # convert to something useable by mms
         converged, start, stop = False, 0, len(amplis)
         while not converged:
-            print(start, stop)
             amplisF = filter(lambda x : x > treshold, amplis[start:stop])
             avg = mean(amplisF)
             std_ = 3 * stdev(amplisF)
@@ -403,18 +402,18 @@ class DNAChromatogram:
         self.cutout(start, stop)
         return (start, stop, amplis)
     
-    def normalize(self):
+    def baseline(self):
         """
-            Normalize the chromatogram, so that it is hopefully suited for chromatogram combination.
+            Perform a baseline correction.
         """
-        # already normalized? quit
-        if self.normalized: return
-        # 1. do baseline correction
-        # TODO: check if needed -> if yes, do it
-        # 2. Cut out the "interesting" region
-        self.cutout()
-        # this means, get rid of chromatogram regions that don't make any sense to align
-        # 3. do skyline correction
+        pass # basically this should already be done - TODO: check if this is really the case and implement an algorithm for threating this if this isn't the case
+    
+    def skyline(self, treshold=20):
+        """
+            Perform a skyline correction.
+
+            @param treshold A treshold giving the minimal height of a peak to take into account for skyline correction.
+        """
         def doSkylineCorrection(trace):
             # general
             tl = len(trace)
@@ -422,7 +421,7 @@ class DNAChromatogram:
             cwtTrace = signal.cwt(trace, signal.ricker, [0.1])[0]
             maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
             maxVals = [(maxima, cwtTrace[maxima]) for maxima in maximas] # this is for maxima filtering
-            maxVals = filter(lambda x:x[1]>20, maxVals) # TODO: check if there's a better treshold than 20
+            maxVals = filter(lambda x:x[1]>treshold, maxVals) # TODO: check if there's a better treshold
             # create the maxima arrays
             maximas = np.array([x[0] for x in maxVals])
             maxVals = np.array([x[1] for x in maxVals])
@@ -439,10 +438,25 @@ class DNAChromatogram:
         self.cTrace = doSkylineCorrection(self.cTrace)
         self.tTrace = doSkylineCorrection(self.tTrace)
         self.gTrace = doSkylineCorrection(self.gTrace)
-        # 4. Check if chromatogram needs filtering -> if yes, filter it
-        # TODO: check if needed -> if yes, do it
-        # remember that this chrom got normalized
-        self.normalized = True
+    
+    def noiseCorrection(self):
+        """
+            Perform a noise correction (filtering).
+        """
+        pass # Same as with baseline - This should already be done. TODO: check if this is really the case and do it if not.
+    
+    def peakIdentifing(self):
+        """
+            Identify peaks in the chromatogram for the different traces.
+
+            @return An dictionary ACTG with the corresponding peak position.
+        """
+        result = {}
+        for key in self.getNucs():
+            mCwt = signal.cwt(self[key], signal.ricker, 0.1])[0]
+            maximas = signal.argrelextrema(mCwt, np.greater)[0]
+            result[key] = maximas
+        return result
     
     def getFuzzyRep(self):
         """
