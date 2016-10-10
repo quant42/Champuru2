@@ -453,7 +453,7 @@ class DNAChromatogram:
         """
         result = {}
         for key in self.getNucs():
-            mCwt = signal.cwt(self[key], signal.ricker, 0.1])[0]
+            mCwt = signal.cwt(self[key], signal.ricker, [0.1])[0]
             maximas = signal.argrelextrema(mCwt, np.greater)[0]
             result[key] = maximas
         return result
