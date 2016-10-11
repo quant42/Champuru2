@@ -445,6 +445,59 @@ class DNAChromatogram:
         """
         pass # Same as with baseline - This should already be done. TODO: check if this is really the case and do it if not.
     
+    def doBaseCalling(self, params=(1.61, 0.1, 6, 1.38, 12)):
+        """
+            Perform a base calling. (Only do that after cutoutAuto, baseline, skyline and noiseCorrection have
+            been applied.)
+
+            @param params Basecalling parameters.
+        """
+        # get the "maximal" trace
+        maxTrace = []
+        for s in self['Z']:
+            maxVal = max(s)
+            maxTrace.append(maxVal)
+        # ok, in the maximal trace, search for local minimas
+        # this allows us to reduce the problem, since between
+        # each consicutive two local minima there's a local maxima
+        # continuous wavelet transformation of this curve
+        mCwt = signal.cwt(maxTrace, signal.ricker, [params[0]])[0]
+        # calculate the continuous wavelet transformation
+        # for each trace (for later)
+        for key in self.getNucs():
+            cwt = signal.cwt(self[key], signal.ricker, [params[1]])[0]
+            setattr(self, "CWT_%s" % key, cwt)
+        # Search for local minimas in the transformation
+        minimas = signal.argrelextrema(mCwt, np.less)[0]
+        # assure that the end point of trace is in
+        if minimas[-1] < self.length - 2:
+            minimas = np.append(minimas, self.length - 1)
+        # some helper functions
+        def annotate(traceP, cwtP, params):
+            x = abs(max(0, max(cwtP)) - max(cwtP[0], cwtP[-1]))
+            # prevent overflow
+            if (-params[3]*(x-params[4])) < -100: return 1.0
+            if (-params[3]*(x-params[4])) > 100: return 0
+            # calculate precisely
+            return 1 / (1 + np.e ** (-params[3]*(x-params[4])))
+        # Now window between two consicutive minimas
+        startMin, lst = 0, []
+        for minima in minimas:
+            # convinience renaming
+            start, stop = startMin, minima
+            # check if enough data
+            if stop - start <= params[2]:
+                lst.append((start, stop, None, None, None, None))
+            peakData = []
+            for key in self.getNucs():
+                peakData.append(
+                    annotate(self[key][start:stop+1], getattr(self, 'CWT_%s' % key)[start:stop+1], params)
+                )
+            lst.append((start, stop, peakData[0], peakData[1], peakData[2], peakData[3]))
+            startMin = minima
+        # return the matrix
+        return lst
+    
     def peakIdentifing(self):
         """
             Identify peaks in the chromatogram for the different traces.
@@ -453,7 +506,7 @@ class DNAChromatogram:
         """
         result = {}
         for key in self.getNucs():
-            mCwt = signal.cwt(self[key], signal.ricker, 0.1])[0]
+            mCwt = signal.cwt(self[key], signal.ricker, [0.1])[0]
             maximas = signal.argrelextrema(mCwt, np.greater)[0]
             result[key] = maximas
         return result
