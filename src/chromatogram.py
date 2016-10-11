@@ -7,6 +7,7 @@ from champuruIO import dnaChromatogramFileWriter as writer
 from scipy.optimize import curve_fit
 from statistics import mean, stdev
 from math import e, ceil, sqrt
+from itertools import islice
 from scipy import signal, fftpack
 import numpy as np
 import svgwrite
@@ -69,8 +70,6 @@ def mms(seq):
         if rmaxscore > maxscore:
             maxscore, l, r = rmaxscore, rstart, i
     return (l, r)
-
-from itertools import islice
 
 def window(seq, n=2): # see http://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator-in-python
     "Returns a sliding window (of width n) over data from the iterable"
@@ -170,7 +169,8 @@ class DNAChromatogram:
                 'C' : self.cTrace,
                 'T' : self.tTrace,
                 'G' : self.gTrace,
-            }
+            },
+            self.doBaseCalling()
         )
     
     def __len__(self):
@@ -443,9 +443,13 @@ class DNAChromatogram:
         """
             Perform a noise correction (filtering).
         """
+        self.aTrace = gf(self.aTrace, 2)
+        self.cTrace = gf(self.cTrace, 2)
+        self.tTrace = gf(self.tTrace, 2)
+        self.gTrace = gf(self.gTrace, 2)
         pass # Same as with baseline - This should already be done. TODO: check if this is really the case and do it if not.
     
-    def doBaseCalling(self, params=(1.61, 0.1, 6, 1.38, 12)):
+    def doBaseCalling(self, params=(1.61, 0.1, 6, 1.38, 12)): # TODO: better default parameter estimation
         """
             Perform a base calling. (Only do that after cutoutAuto, baseline, skyline and noiseCorrection have
             been applied.)
@@ -488,15 +492,29 @@ class DNAChromatogram:
             # check if enough data
             if stop - start <= params[2]:
                 lst.append((start, stop, None, None, None, None))
-            peakData = []
-            for key in self.getNucs():
-                peakData.append(
-                    annotate(self[key][start:stop+1], getattr(self, 'CWT_%s' % key)[start:stop+1], params)
-                )
-            lst.append((start, stop, peakData[0], peakData[1], peakData[2], peakData[3]))
+            else:
+                peakData = []
+                for key in self.getNucs():
+                    peakData.append(
+                        annotate(self[key][start:stop+1], getattr(self, 'CWT_%s' % key)[start:stop+1], params)
+                    )
+                lst.append((start, stop, peakData[0], peakData[1], peakData[2], peakData[3]))
             startMin = minima
         # return the matrix
         return lst
+    
+    def getAveragePeakDist(self):
+        """
+        """
+        pass # TODO
+    
+    def getDoublePeakRegion(self):
+        """
+            Get the region in the chromatogram that probably contains a serie of double peaks.
+        """
+        # get the mean distance between 
+        peaks = self.peakIdentifing() # TODO
+        
     
     def peakIdentifing(self):
         """

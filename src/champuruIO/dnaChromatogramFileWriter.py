@@ -8,6 +8,12 @@ __doc__ = """
 A dna chromatogram file writer.
 """
 
+def probToByte(p):
+    if p == None: return b"\x00"
+    p = int(round(p * 255))
+    assert 0 <= p < 256
+    return intToBytes(p, 1)
+
 def toBytes(l):
     result = b""
     for ele in l:
@@ -26,6 +32,8 @@ def intToBytes(i, b): # little helper function
     elif b == 2:
         # big-endian signed short encoding of int
         return struct.pack(">h", i)
+    elif b == 1:
+        return struct.pack("B", i)
     assert False # WTF? What am I expect to do?
 
 def traceToByte(t):
@@ -41,12 +49,13 @@ def traceToByte(t):
     result = [intToBytes(val, 2) for val in samples]
     return result
 
-def writeToFile(filename, dic):
+def writeToFile(filename, dic, basecalling):
     """
         Write chromatogram data to a chromatogram file.
 
-        @param filename The name of the file to write the chromatogram to.
-        @param dic      A dictionary giving the trace of each chromatogram.
+        @param filename    The name of the file to write the chromatogram to.
+        @param dic         A dictionary giving the trace of each chromatogram.
+        @param basecalling Basecalling data.
     """
     # check the file name. Until now only writing scf chromatogram files
     # are supported
@@ -56,6 +65,18 @@ def writeToFile(filename, dic):
     lengths = [len(dic[key]) for key in 'ACGT']
     for key in range(1, 4):
         assert lengths[0] == lengths[key], "Traces must be of same length"
+    # convert basecalling input
+    bases = []
+    for b in basecalling:
+        # ACTG
+        nucMat = [ '-', 'A', 'C', 'M', 'T', 'W', 'Y', 'H', 'G', 'R', 'S', 'V', 'K', 'D', 'B', 'N' ]
+        A, C, T, G = b[2:]
+        index = (1 if A > 0.5 else 0) + \
+            (2 if C > 0.5 else 0) + \
+            (4 if T > 0.5 else 0) + \
+            (8 if G > 0.5 else 0)
+        bases.append(((b[0] + b[1]) // 2, b[2], b[3], b[5], b[4], nucMat[index]))
+    assert len(bases) == len(set([x[0] for x in bases]))
     # ok, pre-calculate data
     ta = traceToByte(dic['A'])
     tc = traceToByte(dic['C'])
@@ -63,7 +84,7 @@ def writeToFile(filename, dic):
     tt = traceToByte(dic['T'])
     assert len(ta) == len(tc) == len(tg) == len(tt), "Error while converting traces to bytes"
     # bases
-    nrOfBases = 0
+    nrOfBases = len(bases)
     # comment
     # means "PRG=Champuru"
     comment = [0x50, 0x52, 0x47, 0x3d, 0x43, 0x68, 0x61, 0x6d, 0x70, 0x75, 0x72, 0x75]
@@ -82,7 +103,7 @@ def writeToFile(filename, dic):
         # nrBasesLeftClip
         outF.write(toBytes([0x00, 0x00, 0x00, 0x00]))
         # nrBasesRightClip - none
-        outF.write(toBytes([0x00, 0x00, 0x00, 0x00]))
+        outF.write(intToBytes(nrOfBases + 1, 4))
         # nrBasesOffset
         baseOffset = 128 + 4 * sampleLen
         outF.write(intToBytes(baseOffset, 4))
@@ -104,12 +125,31 @@ def writeToFile(filename, dic):
         outF.write(intToBytes(privOffset, 4))
         # spare
         outF.write(toBytes([0x00 for i in range(72)]))
+        assert outF.tell() == 128
         # write samples
         outF.write(toBytes(ta))
         outF.write(toBytes(tc))
         outF.write(toBytes(tg))
         outF.write(toBytes(tt))
-        # write bases here - if possible one day
+        assert outF.tell() == 128 + len(ta) * 2 * 4
+        # write peak position
+        for pos, a, c, t, g, s in bases:
+            print(pos)
+            outF.write(intToBytes(pos, 4))
+        assert outF.tell() == 128 + len(ta) * 2 * 4 + nrOfBases * 4
+        # acc.
+        for i in xrange(1, 5):
+            assert i in [1,2,3,4]
+            for b in bases:
+                outF.write(probToByte(b[i]))
+        assert outF.tell() == 128 + len(ta) * 2 * 4 + nrOfBases * 8
+        # sequence
+        for base in bases:
+            outF.write(base[5])
+        assert outF.tell() == 128 + len(ta) * 2 * 4 + nrOfBases * 9
+        # reserved
+        outF.write(toBytes([0x00 for i in xrange(3 * nrOfBases)]))
+        assert outF.tell() == 128 + len(ta) * 2 * 4 + nrOfBases * 12
         # write comment
         outF.write(toBytes(comment))
         # write priv here if possible one day
