@@ -8,42 +8,16 @@
     <script src="jquery/jquery.js"></script>
     <script src="jquery/jquery-ui.js"></script>    
   </head>
-  <body style="width: 100%; height: 100%">
+  <body style="min-width: 100%; min-height: 100%; margin: 0px">
     <noscript>
       Sorry, but Champuru v. 2.0 requires JavaScript!
     </noscript>
 
-<!-- Language scripts -->
-<script>
-  var userLanguage = "en";
-  function setLanguage(lang) {
-    if(lang != "en" && lang != "de" && lang != "fr") {
-      alert("Language not found!")
-      return;
-    }
-    userLanguage = lang;
-  }
-  function getStr(strId) {
-    if(userLanguage == "de") {
-      return deDict[strId]
-    }
-    if(userLanguage == "fr") {
-      return frDict[strId]
-    }
-    return enDict[strId]
-  }
-  enDict = new Object();
-  enDict["undef"] = "undefined";
-  frDict = new Object();
-  frDict["undef"] = "indéfini"
-  deDict = new Object();
-  deDict["undef"] = "undefiniert";
-</script>
-
-<!-- The ask for language messagebox -->
-<div id="askLanguageDialog" title="Please choose your language">
-  <div>
-  <table style="width: 80%; margin: 0px auto;">
+<!-- Champuru 2.0 header -->
+<div id="headerdiv" class="ui-widget ui-widget-header ui-front" style="top: 0px; left: 0px; padding: 12px; margin: 0px; position: fixed; width: 100%; vertical-align: middle;">
+  <img style="padding: 0 5 0 20px; vertical-align: middle;" src="favicon.ico">
+  <span style="padding: 0 20 0 0px; font-weight: bold; color: white;">Champuru v. 2.0</span>
+  <table style="float: right; padding: 0 20px">
     <tr style="text-align: center">
       <td style="text-align: center">
         <a title="Champuru in English" style="cursor: pointer" onclick="javascript: setLanguage('en'); $('#askLanguageDialog').dialog('close');">
@@ -55,7 +29,6 @@
             <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
             <path d="M30,0 v30 M0,15 h60" stroke="#cf142b" stroke-width="6"/>
           </svg>
-          <br>English
         </a>
       </td>
       <td style="text-align: center">
@@ -65,7 +38,6 @@
             <rect width="20" height="30" y="0" x="20" fill="#FFF"/>
             <rect width="20" height="30" y="0" x="40" fill="#002395"/>
           </svg>
-          <br>Français
         </a>
       </td>
       <td style="text-align: center">
@@ -75,20 +47,90 @@
             <rect width="60" height="10" y="10" x="0" fill="#D00"/>
             <rect width="60" height="10" y="20" x="0" fill="#FFCE00"/>
           </svg>
-          <br>Deutsch
         </a>
       </td>
     </tr>
   </table>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="ui-widget" style="display: block; position: fixed; height: 100%; width: 100%; overflow: hidden; top: 0; left: 0; background-color: white; z-index: 99">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translateX(-50%) translateY(-50%);">
+    <img src="images/loading.gif" alt="Loading ..." style="display:block; margin: 0 auto">
+    <div id="pleaseWaitTextDiv" style="text-align: center">Please wait ...</div>
   </div>
 </div>
+
+<table style="width: 100%;">
+  <tr>
+    <td height="75px"></td>
+  </tr>
+  <tr>
+    <td id="pageContent" style="width: 100%; margin: 5px; padding: 3px; translateX(-50%) translateY(-50%);">
+      <div id="tabing">
+        <ul>
+          <li><a id="defaultTabLink" href="#defaultTab">Default</a></li>
+          <li><a id="settingsTabLink" href="#settingsTab">Submit a job</a></li>
+        </ul>
+        <div id="defaultTab">
+<p>foobar</p>
+        </div>
+        <div id="settingsTab">
+<p>uio</p>
+        </div>
+      </div>
+      <script>
+        $( function() {
+          $( "#tabing" ).tabs();
+        } );
+      </script>
+    </td>
+  </tr>
+</table>
+
+<!-- Language scripts -->
 <script>
-  $( function() {
-    $( "#askLanguageDialog" ).dialog({
-      resizable: true,
-      height: "auto",
-    });
-  } );
+  enDict = new Object();
+  enDict["undef"] = "undefined";
+  enDict["waitText"] = "Please wait ...";
+  frDict = new Object();
+  frDict["undef"] = "indéfini";
+  frDict["waitText"] = "Veuillez attendre ...";
+  deDict = new Object();
+  deDict["undef"] = "undefiniert";
+  deDict["waitText"] = "Bitte warten ...";
+
+  var userLanguage = "en";
+  function setLanguage(lang) {
+    if(lang != "en" && lang != "de" && lang != "fr") {
+      alert("Language not found!")
+      return;
+    }
+    userLanguage = lang;
+    changeUiTexts()
+  }
+  function getStr(strId) {
+    if(userLanguage == "de") {
+      return deDict[strId]
+    }
+    if(userLanguage == "fr") {
+      return frDict[strId]
+    }
+    return enDict[strId]
+  }
+  function changeUiTexts() {
+    $( "#pleaseWaitTextDiv" ).html(getStr("waitText"));
+  }
+</script>
+
+<!-- Loading finished -->
+<script>
+  $( document ).ready(function() {
+    // ok, document loading complete
+    // check if images got loaded
+    // remove loading thing and show ask language dialog instead
+    $( '#loading' ).remove();
+  });
 </script>
 
   </body>
