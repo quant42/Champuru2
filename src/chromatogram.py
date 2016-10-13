@@ -443,10 +443,12 @@ class DNAChromatogram:
         """
             Perform a noise correction (filtering).
         """
-        self.aTrace = gf(self.aTrace, 2)
-        self.cTrace = gf(self.cTrace, 2)
-        self.tTrace = gf(self.tTrace, 2)
-        self.gTrace = gf(self.gTrace, 2)
+        return
+        self.aTrace = gf(self.aTrace, 5)
+        self.cTrace = gf(self.cTrace, 5)
+        self.tTrace = gf(self.tTrace, 5)
+        self.gTrace = gf(self.gTrace, 5)
+        self.skyline()
         pass # Same as with baseline - This should already be done. TODO: check if this is really the case and do it if not.
     
     def doBaseCalling(self, params=(1.61, 0.1, 6, 1.38, 12)): # TODO: better default parameter estimation

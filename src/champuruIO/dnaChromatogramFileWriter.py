@@ -134,7 +134,7 @@ def writeToFile(filename, dic, basecalling):
         assert outF.tell() == 128 + len(ta) * 2 * 4
         # write peak position
         for pos, a, c, t, g, s in bases:
-            print(pos)
+            print("%s '%s'" % (pos, [str(hex(ord(b))) for b in intToBytes(pos, 4)]))
             outF.write(intToBytes(pos, 4))
         assert outF.tell() == 128 + len(ta) * 2 * 4 + nrOfBases * 4
         # acc.
