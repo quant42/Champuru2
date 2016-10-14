@@ -16,7 +16,7 @@
 <!-- Champuru 2.0 header -->
 <div id="headerdiv" class="ui-widget ui-widget-header ui-front" style="top: 0px; left: 0px; padding: 12px; margin: 0px; position: fixed; width: 100%; vertical-align: middle;">
   <img style="padding: 0 5 0 20px; vertical-align: middle;" src="favicon.ico">
-  <span style="padding: 0 20 0 0px; font-weight: bold; color: white;">Champuru v. 2.0</span>
+  <span style="padding: 0 20 0 0px; font-weight: bold large; font-size: 175%; color: white;">Champuru v. 2.0</span>
   <table style="float: right; padding: 0 20px">
     <tr style="text-align: center">
       <td style="text-align: center">
@@ -69,14 +69,81 @@
     <td id="pageContent" style="width: 100%; margin: 5px; padding: 3px; translateX(-50%) translateY(-50%);">
       <div id="tabing">
         <ul>
-          <li><a id="defaultTabLink" href="#defaultTab">Default</a></li>
-          <li><a id="settingsTabLink" href="#settingsTab">Submit a job</a></li>
+          <li><a id="jobTabLink" href="#jobTab"><span class="ui-icon ui-icon-suitcase" />Submit a job</a></li>
+          <li><a id="tutorialTabLink" href="#tutorialTab">Tutorial</a></li>
+          <li><a id="faqTabLink" href="#faqTab">FAQ</a></li>
+          <li><a id="refTabLink" href="#referenceTab">References</a></li>
+          <li><a id="contactTabLink" href="#contactTab">Contact</a></li>
         </ul>
-        <div id="defaultTab">
-<p>foobar</p>
+        <div id="jobTab">
+<table style="margin: 0 auto">
+  <tr>
+    <td id="generalText" colspan="2">General</td>
+  </tr>
+  <tr>
+    <td id="jobnameText">Jobname</td><td><input type="text" /></td>
+  </tr>
+  <tr>
+    <td id="mailText">Mail*</td><td><input type="text" /></td>
+  </tr>
+  <tr>
+    <td id="forwardText">Forward*</td><td><input type="file" /></td>
+  </tr>
+  <tr>
+    <td id="reverseText">Reverse*</td><td><input type="file" /></td>
+  </tr>
+  <tr>
+    <td id="optColorText" colspan="2">Coloring options</td>
+  </tr>
+  <tr>
+    <td id="colorAText">A</td><td><input type="color" value="#00ff00" /></td>
+  </tr>
+  <tr>
+    <td id="colorCText">C</td><td><input type="color" value="#ff0000" /></td>
+  </tr>
+  <tr>
+    <td id="colorTText">T</td><td><input type="color" value="#0000ff" /></td>
+  </tr>
+  <tr>
+    <td id="colorGText">G</td><td><input type="color" value="#000000" /></td>
+  </tr>
+</table>
         </div>
-        <div id="settingsTab">
-<p>uio</p>
+        <div id="tutorialTab">
+<p>foobar</p> <!-- TODO -->
+        </div>
+        <div id="faqTab">
+<p>faq</p> <!-- TODO -->
+        </div>
+        <div id="referenceTab">
+<div id="citeInfoText" style="margin: 12px; overflow: hidden">
+</div>
+<div style="margin: 12px; overflow: hidden">
+  Flot et al. (2006) <b>Phase determination from direct sequencing of length-variable DNA regions</b> <i>Molecular Ecology Notes</i> <b>6</b> (3), 627-630<br/>
+  <div style="float: right">
+    <a href="http://dx.doi.org/10.1111/j.1471-8286.2006.01355.x">Link</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('t06');">Plain Text</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('e06');">EndNote</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('r06');">Reference Manager</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('p06');">ProCite</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('b06');">BibteX</a>&nbsp;&nbsp;&nbsp;
+  </div>
+</div>
+<br/>
+<div style="margin: 12px; overflow: hidden">
+  Flot (2007) <b>Champuru 1.0: a computer software for unraveling mixtures of two DNA sequences of unequal lengths</b> <i>Molecular Ecology Notes</i> <b>7</b> (6), 974-977<br/>
+  <div style="float: right">
+    <a href="http://dx.doi.org/10.1111/j.1471-8286.2007.01857.x">Link</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('t07');">Plain Text</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('e07');">EndNote</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('r07');">Reference Manager</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('p07');">ProCite</a>&nbsp;&nbsp;&nbsp;
+    <a href="#" onclick="javascript: showCitation('b07');">BibteX</a>&nbsp;&nbsp;&nbsp;
+  </div>
+</div>
+        </div>
+        <div id="contactTab">
+<p>contact</p> <!-- TODO -->
         </div>
       </div>
       <script>
@@ -88,39 +155,101 @@
   </tr>
 </table>
 
+<!-- Citations -->
+<div id="citationDialog" title="Citation">
+  <pre id="citationTextToCopy">
+  </pre>
+</div>
+<script>
+  $( "#citationDialog" ).dialog({
+    autoOpen: false,
+    modal: true,
+    buttons: {
+      Ok: function() {
+        $( "#citationDialog" ).dialog( "close" );
+      }
+    }
+  });
+  function showCitation(id) {
+    // load citation data
+    var text = getStr("undef");
+    if (id == "t06") {
+      text = "        ﻿Provider: John Wiley & Sons, Ltd\nContent:text/plain; charset=\"UTF-8\"\n\nTY  - JOUR\nAU  - FLOT, JEAN-FRANÇOIS\nAU  - TILLIER, ANNIE\nAU  - SAMADI, SARAH\nAU  - TILLIER, SIMON\nTI  - Phase determination from direct sequencing of length-variable DNA regions\nJO  - Molecular Ecology Notes\nVL  - 6\nIS  - 3\nPB  - Blackwell Publishing Ltd\nSN  - 1471-8286\nUR  - http://dx.doi.org/10.1111/j.1471-8286.2006.01355.x\nDO  - 10.1111/j.1471-8286.2006.01355.x\nSP  - 627\nEP  - 630\nKW  - coral\nKW  - double peaks\nKW  - haplotyping\nKW  - indels\nKW  - ITS\nPY  - 2006\nER  - "
+    } else if (id == "e06") {
+    }
+    // set text
+    $( "#citationTextToCopy" ).html( text )
+    // load citation message
+    $( "#citationDialog" ).dialog('open');
+  }
+</script>
+
 <!-- Language scripts -->
 <script>
   enDict = new Object();
   enDict["undef"] = "undefined";
   enDict["waitText"] = "Please wait ...";
+  enDict["general"] = "General";
+  enDict["jobTab"] = "Submit a job";
+  enDict["refTab"] = "References";
+  enDict["cite"] = "Citing";
   frDict = new Object();
   frDict["undef"] = "indéfini";
   frDict["waitText"] = "Veuillez attendre ...";
+  frDict["general"] = "Général";
+  frDict["jobTab"] = "Soumettre un job";
+  frDict["refTab"] = "Références";
+  frDict["cite"] = "Citation";
   deDict = new Object();
   deDict["undef"] = "undefiniert";
   deDict["waitText"] = "Bitte warten ...";
+  deDict["general"] = "Allgemein";
+  deDict["jobTab"] = "Jobverwaltung";
+  deDict["refTab"] = "Referenzen";
+  deDict["cite"] = "Citing";
 
   var userLanguage = "en";
   function setLanguage(lang) {
-    if(lang != "en" && lang != "de" && lang != "fr") {
-      alert("Language not found!")
-      return;
-    }
-    userLanguage = lang;
+    userLanguage = lang; // if not en, de or fr -> en will be taken as fallback ...
     changeUiTexts()
   }
   function getStr(strId) {
-    if(userLanguage == "de") {
+    if (userLanguage == "de") {
       return deDict[strId]
     }
-    if(userLanguage == "fr") {
+    if (userLanguage == "fr") {
       return frDict[strId]
     }
     return enDict[strId]
   }
   function changeUiTexts() {
     $( "#pleaseWaitTextDiv" ).html(getStr("waitText"));
+    $( "#defaultTabLink" ).html(getStr("defaultTab"));
+
+    $( "#jobTabLink" ).html(getStr("jobTab"));
+    $( "#tutorialTabLink" ).html(getStr("tutorialTab"));
+    $( "#faqTabLink" ).html(getStr("faqTab"));
+    $( "#refTabLink" ).html(getStr("refTab"));
+    $( "#contactTabLink" ).html(getStr("contactTab"));
+
+    $( "#generalText" ).html(getStr("general"));
+
+    $( "#citationDialog" ).title = getStr("cite"); // TODO
+    $( "#citeInfoText" ).html(getStr("citeNote"))
   }
+  // check which language to use
+  var language = "en";
+  var uristring = decodeURI(window.location.search.toLowerCase());
+  if (uristring.indexOf("&lang=") != -1 || uristring.indexOf("?lang=") != -1) {
+    language = uristring.substr(uristring.indexOf("&lang=") + uristring.indexOf("?lang=") + 7, 2);
+  } else {
+    if (navigator.appName.indexOf("Microsoft") != -1) {  // IE allways need a special case...
+      language = navigator.browserLanguage;
+    } else {
+      language = navigator.language;
+    }
+  }
+  setLanguage(language.substr(0, 2).toLowerCase());
 </script>
 
 <!-- Loading finished -->
