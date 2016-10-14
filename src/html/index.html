@@ -69,13 +69,14 @@
     <td id="pageContent" style="width: 100%; margin: 5px; padding: 3px; translateX(-50%) translateY(-50%);">
       <div id="tabing">
         <ul>
-          <li><a id="jobTabLink" href="#jobTab"><span class="ui-icon ui-icon-suitcase" />Submit a job</a></li>
+          <li><a id="jobTabLink" href="#jobTab">Submit a job</a></li>
           <li><a id="tutorialTabLink" href="#tutorialTab">Tutorial</a></li>
           <li><a id="faqTabLink" href="#faqTab">FAQ</a></li>
           <li><a id="refTabLink" href="#referenceTab">References</a></li>
           <li><a id="contactTabLink" href="#contactTab">Contact</a></li>
         </ul>
         <div id="jobTab">
+<div class="ui-icon ui-icon-suitcase"></div>
 <table style="margin: 0 auto">
   <tr>
     <td id="generalText" colspan="2">General</td>
@@ -149,6 +150,8 @@
       <script>
         $( function() {
           $( "#tabing" ).tabs();
+          $( "#jobTabLink" ).addClass("ui-icon");
+          $( "#jobTabLink" ).addClass("ui-icon-suitcase");
         } );
       </script>
     </td>
@@ -176,6 +179,9 @@
     if (id == "t06") {
       text = "        ﻿Provider: John Wiley & Sons, Ltd\nContent:text/plain; charset=\"UTF-8\"\n\nTY  - JOUR\nAU  - FLOT, JEAN-FRANÇOIS\nAU  - TILLIER, ANNIE\nAU  - SAMADI, SARAH\nAU  - TILLIER, SIMON\nTI  - Phase determination from direct sequencing of length-variable DNA regions\nJO  - Molecular Ecology Notes\nVL  - 6\nIS  - 3\nPB  - Blackwell Publishing Ltd\nSN  - 1471-8286\nUR  - http://dx.doi.org/10.1111/j.1471-8286.2006.01355.x\nDO  - 10.1111/j.1471-8286.2006.01355.x\nSP  - 627\nEP  - 630\nKW  - coral\nKW  - double peaks\nKW  - haplotyping\nKW  - indels\nKW  - ITS\nPY  - 2006\nER  - "
     } else if (id == "e06") {
+      text = ""
+    } else if (id == "r06") {
+      text = ""
     }
     // set text
     $( "#citationTextToCopy" ).html( text )

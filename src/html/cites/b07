@@ -1,0 +1,18 @@
+
+
+@article {MEN:MEN1857,
+author = {FLOT, JEAN-FRANÇOIS},
+title = {champuru 1.0: a computer software for unraveling mixtures of two DNA sequences of unequal lengths},
+journal = {Molecular Ecology Notes},
+volume = {7},
+number = {6},
+publisher = {Blackwell Publishing Ltd},
+issn = {1471-8286},
+url = {http://dx.doi.org/10.1111/j.1471-8286.2007.01857.x},
+doi = {10.1111/j.1471-8286.2007.01857.x},
+pages = {974--977},
+keywords = {double peaks, haplotyping, indels, length variant heterozygote, mixed trace, sequencing},
+year = {2007},
+}
+
+
