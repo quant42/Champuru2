@@ -205,7 +205,7 @@ def getTestChromStrings(gcContent, s1, s2, l1, l2, snps, lfreq, cnvs):
     # combine and return data
     return ((combineSeqs(c11, c12), combineSeqs(c21, c22)), (combineSeqs(reverse_complement(c11), reverse_complement(c12)), combineSeqs(reverse_complement(c21), reverse_complement(c22))), (refGenome, g1, g2), (c11, c12, c21, c22))
 
-if __name__ == "__main__":
+def simulate():
     import random
     gcContent = random.random()
     len1 = random.randint(1000, 1500)
@@ -213,7 +213,10 @@ if __name__ == "__main__":
     startP1 = random.randint(15, 25)
     startP2 = random.randint(0, 5)
     snps = random.randint(0, 100)
-    gap = random.randint(1, 15)
-    print(gcContent, len1, len2, startP1, startP2, snps, gap)
-    testData = getTestChromStrings(gcContent, startP1, startP2, len1, len2, snps, [gap], 1)
-    print(testData)
+    gap = [random.randint(1, 15) for i in range(5)]
+    nrGaps = random.randint(1, 5)
+    testData = getTestChromStrings(gcContent, startP1, startP2, len1, len2, snps, gap, nrGaps)
+    return (gcContent, len1, len2, startP1, startP2, snps, gap, testData)
+
+if __name__ == "__main__":
+    print(simulate())
