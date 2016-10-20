@@ -5,34 +5,22 @@ from __future__ import division, print_function
 from simSeq import simulate as simSeqSimulate
 from random import choice, randint, gauss
 
-def choose(nuc, nucTerm):
-    glob = nuc + nucTerm
-    if glob == 0:
-        return "E" # End
-    r = randint(1, glob)
-    if r > nuc:
-        return "N" # Nuc
-    return "T" # Terminal
-
-def simPCRStrand(seq, prs):
+def doPCR(seq, prs):
     s = []
     for c in seq:
-        nuc = choose(prs[c], prs[c + "*"])
-        if nuc == "E":
+        cS = c + "*"
+        a, b = prs[c], prs[cS]
+        glob = a + b
+        if glob == 0:
             break
-        elif nuc == "N":
-            s.append(c)
-            prs[c] = prs[c] - 1
-        else:
-            s.append(c)
-            s.append("*")
-            prs[c + "*"] = prs[c + "*"] - 1
+        r = randint(1, glob)
+        if r <= a:
+            s.append(cS)
+            prs[cS] = prs[cS] - 1
             break
-    return ("".join(s), prs)
-
-def addSeqToResult(result, seq):
-    result[seq] = result.get(seq, 0) + 1
-    return result
+        s.append(c)
+        prs[c] = prs[c] - 1
+    return "".join(s)
 
 def missPrs(prs):
     for key in prs:
@@ -58,18 +46,18 @@ def simulate():
     }
     resultFor = {}
     resultRev = {}
-    for i in xrange(10000000):
+    for i in xrange(1000000):
         # not enough dntp's anymore? => quit
         if missPrs(prs):
             break
         # sim.
-        i = randint(0, len(seqs) - 1) # the sequence index to take
+        i = randint(0, 3) # the sequence index to take; 2 * 2 (diploid * (forw+rev))
         seq = seqs[i] # the sequence
-        seq, prs = simPCRStrand(seq, prs)
+        seq = doPCR(seq, prs)
         if i <= 1: # forward sequence
-            resultFor = addSeqToResult(resultFor, seq)
+            resultFor[seq] = resultFor.get(seq, 0) + 1
         else: # reverse sequence
-            resultRev = addSeqToResult(resultRev, seq)
+            resultRev[seq] = resultRev.get(seq, 0) + 1
     return (gcContent, len1, len2, startP1, startP2, snps, gap, testdata, resultFor, resultRev)
 
 if __name__ == "__main__":
