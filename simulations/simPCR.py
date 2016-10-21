@@ -1,9 +1,11 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
 from __future__ import division, print_function
 from simSeq import simulate as simSeqSimulate
-from random import choice, randint, gauss
+from random import choice, randint, gauss, getrandbits, random, randrange
+try: xrange
+except NameError: xrange = range
 
 def doPCR(seq, prs):
     s = []
@@ -13,21 +15,14 @@ def doPCR(seq, prs):
         glob = a + b
         if glob == 0:
             break
-        r = randint(1, glob)
-        if r <= a:
+        r = randrange(glob)
+        if r < a:
             s.append(cS)
             prs[cS] = prs[cS] - 1
             break
         s.append(c)
         prs[c] = prs[c] - 1
     return "".join(s)
-
-def missPrs(prs):
-    for key in prs:
-        val = prs[key]
-        if val <= 0:
-            return True
-    return False
 
 def simulate():
     gcContent, len1, len2, startP1, startP2, snps, gap, testdata = simSeqSimulate()
@@ -46,12 +41,12 @@ def simulate():
     }
     resultFor = {}
     resultRev = {}
-    for i in xrange(1000000):
+    for i in xrange(5000000):
         # not enough dntp's anymore? => quit
-        if missPrs(prs):
+        if 0 in prs.values(): #itervalues():
             break
         # sim.
-        i = randint(0, 3) # the sequence index to take; 2 * 2 (diploid * (forw+rev))
+        i = getrandbits(2) # fast way for writing randint(0, 3) - this function is not cryptographically secure, but that doesn't mind for PCR simulations. # the sequence index to take; 2 * 2 (diploid * (forw+rev))
         seq = seqs[i] # the sequence
         seq = doPCR(seq, prs)
         if i <= 1: # forward sequence
