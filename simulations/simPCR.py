@@ -8,12 +8,13 @@ try: xrange
 except NameError: xrange = range
 
 def doPCR(seq, prs):
-    s = []
+    flag, s = False, []
     for c in seq:
         cS = c + "*"
         a, b = prs[c], prs[cS]
         glob = a + b
         if glob == 0:
+            flag = True
             break
         r = randrange(glob)
         if r < a:
@@ -22,7 +23,7 @@ def doPCR(seq, prs):
             break
         s.append(c)
         prs[c] = prs[c] - 1
-    return "".join(s)
+    return (flag, "".join(s))
 
 def simulate():
     gcContent, len1, len2, startP1, startP2, snps, gap, testdata = simSeqSimulate()
@@ -42,13 +43,13 @@ def simulate():
     resultFor = {}
     resultRev = {}
     for i in xrange(5000000):
-        # not enough dntp's anymore? => quit
-        if 0 in prs.values(): #itervalues():
-            break
         # sim.
         i = getrandbits(2) # fast way for writing randint(0, 3) - this function is not cryptographically secure, but that doesn't mind for PCR simulations. # the sequence index to take; 2 * 2 (diploid * (forw+rev))
         seq = seqs[i] # the sequence
-        seq = doPCR(seq, prs)
+        flag, seq = doPCR(seq, prs)
+        # not enough dntp's anymore? => quit
+        if flag:
+            break
         if i <= 1: # forward sequence
             resultFor[seq] = resultFor.get(seq, 0) + 1
         else: # reverse sequence
