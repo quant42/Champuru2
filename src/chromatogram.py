@@ -422,13 +422,15 @@ class DNAChromatogram:
             maximas = signal.argrelextrema(cwtTrace, np.greater)[0]
             maxVals = [(maxima, cwtTrace[maxima]) for maxima in maximas] # this is for maxima filtering
             maxVals = filter(lambda x:x[1]>treshold, maxVals) # TODO: check if there's a better treshold
+            # save, where the absolute max. can be found
+            absMaxValPos = max(maxVals, key=lambda x:x[1])[0]
             # create the maxima arrays
             maximas = np.array([x[0] for x in maxVals])
             maxVals = np.array([x[1] for x in maxVals])
             # expected peak height ~ exp. decay ratio
-            pSkyF = lambda x, a, b : a * e ** (-b * x)
-            (a, b), pConv = curve_fit(pSkyF, maximas, maxVals, p0=(max(maxVals), 10E-7))
-            skyline = np.array([pSkyF(x, a, b) for x in range(tl)])
+            pSkyF = lambda x, a, b, m : a * e ** (np.sign(x-m) * -b * (x-m))
+            (a, b, m), pConv = curve_fit(pSkyF, maximas, maxVals, p0=(max(maxVals), 10E-7, absMaxValPos))
+            skyline = np.array([pSkyF(x, a, b, m) for x in range(tl)])
             skyline = np.array([max(1, skyline[x]) for x in range(tl)])
             # normalize
             trace = np.array([ trace[x] / skyline[x] * 100 for x in range(tl) ])

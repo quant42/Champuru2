@@ -29,7 +29,7 @@ def simulate():
     gcContent, len1, len2, startP1, startP2, snps, gap, testdata = simSeqSimulate()
     seqs = testdata[-1]
     assert len(seqs) == 4
-    avogadro, dntp, ntp, acc = 6.022 * 10 ** 23, 0.5, 2, 0.01
+    avogadro, dntp, ntp, acc = 6.022 * 10 ** 23, 1/(2 ** len(seqs[0])), 1, 0.01
     prs = {
         "A"  : int(round(gauss(ntp * avogadro, acc * avogadro))),
         "A*" : int(round(gauss(dntp * avogadro, acc * avogadro))),
@@ -42,7 +42,7 @@ def simulate():
     }
     resultFor = {}
     resultRev = {}
-    for i in xrange(5000000):
+    for i in xrange(1000000):
         # sim.
         i = getrandbits(2) # fast way for writing randint(0, 3) - this function is not cryptographically secure, but that doesn't mind for PCR simulations. # the sequence index to take; 2 * 2 (diploid * (forw+rev))
         seq = seqs[i] # the sequence
