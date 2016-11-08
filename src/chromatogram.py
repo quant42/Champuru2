@@ -286,6 +286,23 @@ class DNAChromatogram:
             poly = svg.polygon(points, style=style)
             # add the polygon to the figure
             svg.add(poly)
+        # add peak positions
+        peaks = self.peakIdentifing()
+        for i, key in enumerate(keys):
+            for pos in peaks[key]:
+                x, y, color = offsetX + pos + indents, offsetY + maxChromVal - self.__getitem__(key)[pos], colorCodes[i % len(colorCodes)]
+                line = svg.line(
+                    start=(x - 5, y - 5),
+                    end=(x + 5, y + 5),
+                    style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
+                )
+                svg.add(line)
+                line = svg.line(
+                    start=(x - 5, y + 5),
+                    end=(x + 5, y - 5),
+                    style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
+                )
+                svg.add(line)
         # save and return the svg object
         svg.save()
     
@@ -380,24 +397,33 @@ class DNAChromatogram:
             signalAmpli = max(amplitudes)
             amplis.append(signalAmpli)
         assert len(amplis) == self.length
-#        import matplotlib.pyplot as plt
-#        plt.plot(amplis)
-#        plt.show()
+        amplis = np.array(amplis)
+        # fitting function
+        pSkyF = lambda x, a, b : a * e ** (-b * x)
         # convert to something useable by mms
-        converged, start, stop = False, 0, len(amplis)
+        converged, start, stop, a, b = False, 0, len(amplis), 0, 0
         while not converged:
-            amplisF = filter(lambda x : x > treshold, amplis[start:stop])
-            avg = mean(amplisF)
-            std_ = 3 * stdev(amplisF)
-            tSig = [-1 if abs(avg - val) > std_ or val < treshold else 1 for val in amplis]
+            # fit amplis to an exp. function (f(x) = a e ^ (-b x))
+            (a, b), pConv = curve_fit(pSkyF, np.linspace(start, stop - 1, stop - start), amplis[start:stop], p0=(100, 10E-7))
+            # get the distance to the fitted line
+            fitlineDist = [ abs(pSkyF(x, a, b) - amplis[x]) for x in range(start, stop) ]
+            # estimate 3 * std approx 5% of outer points
+            std_ = 3 * stdev(fitlineDist)
+            tSig = [-1 if abs(pSkyF(x, a, b) - val) > std_ or val < treshold else 1 for x, val in enumerate(amplis)]
             assert max(tSig) > 0
             # call mms problem solver
             startX, stopX = mms(tSig)
-            startX = max(startX - windowSize // 2, 0)
-            stopX = min(stopX + windowSize // 2, self.length)
             # check if converged
             converged = start == startX and stop == stopX
             start, stop = startX, stopX
+        # plot
+        import matplotlib.pyplot as plt
+        plt.plot(amplis, label="ampli")
+        plt.plot([pSkyF(x, a, b) for x in range(len(amplis))], label="%s e^(-%s x)" % (round(a, 2), round(b, 2)))
+        plt.axvline(start, color="grey")
+        plt.axvline(stop, color="grey")
+        plt.legend(loc="best", ncol=2, fancybox=True, shadow=True)
+        plt.savefig("cutoff.png")
         # cut
         self.cutout(start, stop)
         return (start, stop, amplis)
@@ -445,12 +471,11 @@ class DNAChromatogram:
         """
             Perform a noise correction (filtering).
         """
-        return
-        self.aTrace = gf(self.aTrace, 5)
-        self.cTrace = gf(self.cTrace, 5)
-        self.tTrace = gf(self.tTrace, 5)
-        self.gTrace = gf(self.gTrace, 5)
-        self.skyline()
+        self.aTrace = gf(self.aTrace, 1)
+        self.cTrace = gf(self.cTrace, 1)
+        self.tTrace = gf(self.tTrace, 1)
+        self.gTrace = gf(self.gTrace, 1)
+#        self.skyline()
         pass # Same as with baseline - This should already be done. TODO: check if this is really the case and do it if not.
     
     def doBaseCalling(self, params=(1.61, 0.1, 6, 1.38, 12)): # TODO: better default parameter estimation
@@ -526,11 +551,14 @@ class DNAChromatogram:
 
             @return An dictionary ACTG with the corresponding peak position.
         """
+        try: return self.peaks
+        except: pass
         result = {}
         for key in self.getNucs():
             mCwt = signal.cwt(self[key], signal.ricker, [0.1])[0]
             maximas = signal.argrelextrema(mCwt, np.greater)[0]
-            result[key] = maximas
+            result[key] = maximas #[(x, self[key][x], mCwt[x]) for x in maximas]
+        self.peaks = result
         return result
     
     def getFuzzyRep(self):
