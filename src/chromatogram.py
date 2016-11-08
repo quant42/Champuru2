@@ -401,7 +401,7 @@ class DNAChromatogram:
         # fitting function
         pSkyF = lambda x, a, b : a * e ** (-b * x)
         # convert to something useable by mms
-        converged, start, stop, a, b = False, 0, len(amplis), 0, 0
+        converged, start, stop, a, b, std_ = False, 0, len(amplis), 0, 0, 0
         while not converged:
             # fit amplis to an exp. function (f(x) = a e ^ (-b x))
             (a, b), pConv = curve_fit(pSkyF, np.linspace(start, stop - 1, stop - start), amplis[start:stop], p0=(100, 10E-7))
@@ -416,11 +416,19 @@ class DNAChromatogram:
             # check if converged
             converged = start == startX and stop == stopX
             start, stop = startX, stopX
-        # plot
+        stopold = stop
+        # extend stop point, as long as there's no endpoint detection
+        tSig = [1 if pSkyF(x, a, b) - std_ <= val else -1 for x, val in enumerate(amplis)]
+        _, stop = mms(tSig)
+        stop = min(stop + windowSize // 2, self.length)
+        # plot - for debug
         import matplotlib.pyplot as plt
-        plt.plot(amplis, label="ampli")
-        plt.plot([pSkyF(x, a, b) for x in range(len(amplis))], label="%s e^(-%s x)" % (round(a, 2), round(b, 2)))
+        plt.plot(amplis, label="ampli", color="blue")
+        plt.plot([pSkyF(x, a, b) for x in range(len(amplis))], label="%s e^(-%s x)" % (round(a, 2), round(b, 2)), color="green")
+        plt.plot([pSkyF(x, a, b) + std_ for x in range(len(amplis))], color="green")
+        plt.plot([pSkyF(x, a, b) - std_ for x in range(len(amplis))], color="green")
         plt.axvline(start, color="grey")
+        plt.axvline(stopold, color="grey")
         plt.axvline(stop, color="grey")
         plt.legend(loc="best", ncol=2, fancybox=True, shadow=True)
         plt.savefig("cutoff.png")
