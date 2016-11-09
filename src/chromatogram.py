@@ -82,6 +82,14 @@ def window(seq, n=2): # see http://stackoverflow.com/questions/6822725/rolling-o
         result = result[1:] + (elem,)
         yield result
 
+def findMaximas(trace):
+    maximas = []
+    for pos, vals in enumerate(window(trace, 5)):
+        maxEle = max(vals)
+        if vals[2] == maxEle and vals[1] < vals[2] >= vals[3]:
+            maximas.append(pos + 2)
+    return maximas
+
 class DNAChromatogram:
     """ Class representing a DNA chromatogram. """
     
@@ -289,20 +297,27 @@ class DNAChromatogram:
         # add peak positions
         peaks = self.peakIdentifing()
         for i, key in enumerate(keys):
-            for pos in peaks[key]:
+            for pos, marker in peaks[key]:
                 x, y, color = offsetX + pos + indents, offsetY + maxChromVal - self.__getitem__(key)[pos], colorCodes[i % len(colorCodes)]
-                line = svg.line(
-                    start=(x - 5, y - 5),
-                    end=(x + 5, y + 5),
-                    style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
-                )
-                svg.add(line)
-                line = svg.line(
-                    start=(x - 5, y + 5),
-                    end=(x + 5, y - 5),
-                    style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
-                )
-                svg.add(line)
+                if marker == "X":
+                    line = svg.line(
+                        start=(x - 5, y - 5),
+                        end=(x + 5, y + 5),
+                        style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
+                    )
+                    svg.add(line)
+                    line = svg.line(
+                        start=(x - 5, y + 5),
+                        end=(x + 5, y - 5),
+                        style="stroke:rgb(%s,%s,%s);stroke-width:1" % color
+                    )
+                    svg.add(line)
+                else:
+                    svg.add(svg.circle(
+                        center=(x, y),
+                        r=5,
+                        style="stroke:rgb(%s,%s,%s);stroke-width:1;fill:None" % color
+                    ))
         # save and return the svg object
         svg.save()
     
@@ -420,18 +435,20 @@ class DNAChromatogram:
         # extend stop point, as long as there's no endpoint detection
         tSig = [1 if pSkyF(x, a, b) - std_ <= val else -1 for x, val in enumerate(amplis)]
         _, stop = mms(tSig)
+        # correct indices
+        start = max(start - windowSize // 2, 0)
         stop = min(stop + windowSize // 2, self.length)
         # plot - for debug
-        import matplotlib.pyplot as plt
-        plt.plot(amplis, label="ampli", color="blue")
-        plt.plot([pSkyF(x, a, b) for x in range(len(amplis))], label="%s e^(-%s x)" % (round(a, 2), round(b, 2)), color="green")
-        plt.plot([pSkyF(x, a, b) + std_ for x in range(len(amplis))], color="green")
-        plt.plot([pSkyF(x, a, b) - std_ for x in range(len(amplis))], color="green")
-        plt.axvline(start, color="grey")
-        plt.axvline(stopold, color="grey")
-        plt.axvline(stop, color="grey")
-        plt.legend(loc="best", ncol=2, fancybox=True, shadow=True)
-        plt.savefig("cutoff.png")
+#        import matplotlib.pyplot as plt
+#        plt.plot(amplis, label="ampli", color="blue")
+#        plt.plot([pSkyF(x, a, b) for x in range(len(amplis))], label="%s e^(-%s x)" % (round(a, 2), round(b, 2)), color="green")
+#        plt.plot([pSkyF(x, a, b) + std_ for x in range(len(amplis))], color="green")
+#        plt.plot([pSkyF(x, a, b) - std_ for x in range(len(amplis))], color="green")
+#        plt.axvline(start, color="grey")
+#        plt.axvline(stopold, color="grey")
+#        plt.axvline(stop, color="grey")
+#        plt.legend(loc="best", ncol=2, fancybox=True, shadow=True)
+#        plt.savefig("cutoff.png")
         # cut
         self.cutout(start, stop)
         return (start, stop, amplis)
@@ -556,6 +573,7 @@ class DNAChromatogram:
     def peakIdentifing(self):
         """
             Identify peaks in the chromatogram for the different traces.
+            Do cutout first!
 
             @return An dictionary ACTG with the corresponding peak position.
         """
@@ -563,9 +581,17 @@ class DNAChromatogram:
         except: pass
         result = {}
         for key in self.getNucs():
-            mCwt = signal.cwt(self[key], signal.ricker, [0.1])[0]
-            maximas = signal.argrelextrema(mCwt, np.greater)[0]
-            result[key] = maximas #[(x, self[key][x], mCwt[x]) for x in maximas]
+            #mCwt = signal.cwt(self[key], signal.ricker, [0.1])[0]
+            #maximas = signal.argrelextrema(mCwt, np.greater)[0]
+            #result[key] = signal.argrelextrema(self[key], np.greater)[0] #maximas #[(x, self[key][x], mCwt[x]) for x in maximas]
+            maximas = set([(val, "X") for val in findMaximas(self[key])])
+            cwtTrans = signal.cwt(self[key], signal.ricker, np.arange(1, 20)) # todo width parameter estimation
+            for cwtTran in cwtTrans:
+                for maxima in findMaximas(cwtTran):
+                    maximas.add((maxima, "O"))
+            # filter maximas
+            # save maximas
+            result[key] = sorted(list(maximas), key=lambda x : x[0])
         self.peaks = result
         return result
     
