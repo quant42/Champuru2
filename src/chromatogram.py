@@ -83,12 +83,28 @@ def window(seq, n=2): # see http://stackoverflow.com/questions/6822725/rolling-o
         yield result
 
 def findMaximas(trace):
+    """Find relative extremas in a trace."""
     maximas = []
     for pos, vals in enumerate(window(trace, 5)):
         maxEle = max(vals)
         if vals[2] == maxEle and vals[1] < vals[2] >= vals[3]:
             maximas.append(pos + 2)
     return maximas
+
+def filterPeaks(trace, peaks):
+    """Filter the peaks and return reliable peaks as list."""
+    # peaks should more or less follow the law a e ^ (-b x)
+    pSkyF = lambda x, a, b : a * e ** (-b * x)
+    # convert
+    converged, a, b, std_ = False, 0, len(amplis), 0, 0, 0
+    while not converged:
+        # create 
+        # fit curve
+        (a, b), pConv = curve_fit(pSkyF, np.linspace(start, stop - 1, stop - start), amplis[start:stop], p0=(1000, 10E-7))
+        
+        # get the distance to the fitted line
+        fitlineDist = [ abs(pSkyF(x, a, b) - amplis[x]) for x in range(start, stop) ]
+    return peaks
 
 class DNAChromatogram:
     """ Class representing a DNA chromatogram. """
@@ -590,8 +606,9 @@ class DNAChromatogram:
                 for maxima in findMaximas(cwtTran):
                     maximas.add((maxima, "O"))
             # filter maximas
+            maximas = filterPeaks(self[key], sorted(list(maximas), key=lambda x : x[0]))
             # save maximas
-            result[key] = sorted(list(maximas), key=lambda x : x[0])
+            result[key] = maximas
         self.peaks = result
         return result
     
